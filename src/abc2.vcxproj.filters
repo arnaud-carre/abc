@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{e70c8ff8-e344-418d-840a-340cac08c2dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="extern">
+      <UniqueIdentifier>{1d7d84d4-861b-487c-b296-70bc413c9e64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="extern\libspng">
+      <UniqueIdentifier>{4b041972-9d3f-4626-866d-955bb59a87ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="extern\miniz">
+      <UniqueIdentifier>{de8cd21f-005b-4d9e-aef6-0a9b433d0afb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="abc2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dithering.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ham.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="color.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dx11.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pngFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="extern\libspng\spng.c">
+      <Filter>extern\libspng</Filter>
+    </ClCompile>
+    <ClCompile Include="extern\miniz\miniz.c">
+      <Filter>extern\miniz</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="abc2.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dithering.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ham.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="color.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dx11.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pngFile.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="extern\libspng\spng.h">
+      <Filter>extern\libspng</Filter>
+    </ClInclude>
+    <ClInclude Include="extern\miniz\miniz.h">
+      <Filter>extern\miniz</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\HamCompute.h">
+      <Filter>shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\MppCompute.h">
+      <Filter>shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\ShamCompute.h">
+      <Filter>shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\SinglePalCompute.h">
+      <Filter>shaders</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\HamCompute.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\MppCompute.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\ShamCompute.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\SinglePalCompute.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>
