@@ -81,6 +81,13 @@ Options:
 - Written by Arnaud Carré aka Leonard/Oxygene
 - abc2 is using [libspng](https://github.com/randy408/libspng) and [miniz](https://github.com/richgel999/miniz) for PNG file reading & writing. 
 
+## Links
+
+I wrote two blogposts related to this tool somehow:
+
+Blog post 1: [how the brute force best palette search is done](https://arnaud-carre.github.io/2022-12-30-amiga-ham/)
+
+Blog post 2: [how the GPU is used to speed up the brute force search](https://arnaud-carre.github.io/2023-12-10-gpgpu/)
 
 ## Production ready
 
