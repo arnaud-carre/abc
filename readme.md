@@ -83,7 +83,9 @@ Options:
 
 ## Links
 
-I wrote two blogposts related to this tool somehow:
+[pouet.net](https://www.pouet.net/prod.php?which=95714) page
+
+I also wrote two blogposts related to this tool somehow:
 
 Blog post 1: [how the brute force best palette search is done](https://arnaud-carre.github.io/2022-12-30-amiga-ham/)
 
