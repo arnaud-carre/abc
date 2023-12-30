@@ -936,7 +936,7 @@ bool	AmigAtariBitmap::SaveIff(const ConvertParams& params, const char* sFilename
 			w32(hf, 0x800);	// Amiga HAM mode bit
 		}
 		fwrite("CMAP", 1, 4, hf);
-		const int colorCount = 1 << m_bpc;
+		const int colorCount = m_ham ? 16 : 1 << m_bpc;
 		w32(hf, colorCount*3);
 		for (int i = 0; i < colorCount; i++)
 		{
@@ -954,7 +954,7 @@ bool	AmigAtariBitmap::SaveIff(const ConvertParams& params, const char* sFilename
 			w32(hf, chunkSize);
 			w16(hf, 0);	// SHAM version
 			for (int i = 0; i < m_h*16; i++)
-				w16(hf, uint16_t(m_palettes[i].GetRaw12bitsColor()));
+				w16(hf, m_palettes[i].GetRaw12bitsColor());
 			if (m_h & 1)
 			{
 				for (int i = 0; i < 16; i++)
