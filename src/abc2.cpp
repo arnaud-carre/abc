@@ -343,6 +343,25 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 		}
 	}
 
+	if (dstIffFilename)
+	{
+		if ((bitplanCount < 0) && (!AnyHam()))
+		{
+			printf("ERROR: -iff export only support bitplan images, HAM of SHAM\n");
+			ret = false;
+		}
+		if (sham5b || multiPalette)
+		{
+			printf("ERROR: -iff export does not support multi-palette or SHAM5b\n");
+			ret = false;
+		}
+		if (atari)
+		{
+			printf("ERROR: -iff export does not support -atari\n");
+			ret = false;
+		}
+	}
+
 	if ((dstPalFilename) && (rgb))
 	{
 		printf("ERROR: You should not specify a palette file when using rgb mode\n");
@@ -363,40 +382,42 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 void	Help()
 {
 	printf("Usage:\n"
-		"\tabc2 <src png file> [-options]\n"
-	    "\n"
-		"Export modes:\n"
-		"\t-bpc <n> : output classic n bitplans bitmap\n"
-		"\t-rgb : output 16bits rgb binary\n"
-		"\t-mpp : use one palette per line ( more colors )\n"
-		"\t-ham : convert to Amiga HAM6 format (brute force best result)\n"
-		"\t-sham : convert to Amiga Sliced-HAM6 format (brute force best result)\n"
-		"\t-sham5b : convert to best quality Amiga SHAM5b (31 shades) (brute force best result)\n"
-		"Options:\n"
-		"\t-b <file> : bitmap binary output file\n"
-		"\t-p <file> : palette binary output file\n"
-		"\t-preview <file> : PC preview PNG output image\n"
-		"\t-cpu : force CPU usage for HAM or -quantize option instead of GPU\n"
-		"\t-quantize : if src has more color than supported by bitplan, reduce colors\n"
-		"\t-uninterleaved: save each complete amiga bitplan (not interleaved per line)\n"
-		"\t-forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)\n"
-		"\t-remap <x> <y> <i>: consider pixel (x,y) as color index <i>\n"
-		"\t-swap <id0> <id1>: swap color index id0 with color index id1\n"
-		"\t-floyd : use Floyd dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
-		"\t-sierra : use Sierra dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
-		"\t-bayer : use ordered Bayer dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
-		"\t-chunky : store bitmap file in chunky mode (4bits per pixel)\n"
-		"\t-amiga : use Amiga bitplan format output (default)\n"
-		"\t-atari : use Atari bitplan format output\n"
-		"\t-ste : use Atari STE palette format (Atari default)\n"
-		"\t-stf : use Atari STF palette format (3bits per component)\n"
-		"\t-sprw <w> : input image contains w pixels width tiles\n"
-		"\t-sprh <h> : input image contains h pixels high tiles\n"
-		"\t-sprc <n> : input image contains n tiles\n"
-		"\t-erx <x> : export region start at x\n"
-		"\t-ery <y> : export region start at y\n"
-		"\t-erw <w> : export region is w pixels width\n"
-		"\t-erh <h> : export region is h pixels high\n");
+			"\tabc2 <src png file> [-options]\n"
+			"\n"
+			"Export modes:\n"
+			"\t-bpc <n> : output classic n bitplans bitmap\n"
+			"\t-rgb : output 16bits rgb binary\n"
+			"\t-ham : convert to Amiga HAM6 format (brute force best result)\n"
+			"\t-sham : convert to Amiga Sliced-HAM6 format (brute force best result)\n"
+			"\t-sham5b : convert to best quality Amiga SHAM5b (31 shades) (brute force best result)\n"
+			"Output files options:\n"
+			"\t-b <file> : bitmap binary output file\n"
+			"\t-p <file> : palette binary output file\n"
+			"\t-preview <file> : PC preview PNG output image\n"
+			"\t-iff <file> : output Amiga compatible IFF file\n"
+			"Options:\n"
+			"\t-mpp : use one palette per line ( more colors )\n"
+			"\t-quantize : if src has more color than supported by # of bitplan(s), reduce colors\n"
+			"\t-floyd : use Floyd dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
+			"\t-sierra : use Sierra dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
+			"\t-bayer : use ordered Bayer dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
+			"\t-uninterleaved: save each complete amiga bitplan (not interleaved per line)\n"
+			"\t-cpu : force CPU usage for HAM or -quantize option instead of GPU\n"
+			"\t-forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)\n"
+			"\t-remap <x> <y> <i>: consider pixel (x,y) as color index <i>\n"
+			"\t-swap <id0> <id1>: swap color index id0 with color index id1\n"
+			"\t-chunky : store bitmap file in chunky mode (4bits per pixel)\n"
+			"\t-amiga : use Amiga bitplan format output (default)\n"
+			"\t-atari : use Atari bitplan format output\n"
+			"\t-ste : use Atari STE palette format (Atari default)\n"
+			"\t-stf : use Atari STF palette format (3bits per component)\n"
+			"\t-sprw <w> : input image contains w pixels width tiles\n"
+			"\t-sprh <h> : input image contains h pixels high tiles\n"
+			"\t-sprc <n> : input image contains n tiles\n"
+			"\t-erx <x> : export region start at x\n"
+			"\t-ery <y> : export region start at y\n"
+			"\t-erw <w> : export region is w pixels width\n"
+			"\t-erh <h> : export region is h pixels high\n");
 }
 
 bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
@@ -453,6 +474,11 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 			{
 				argId++;
 				params.dstBinFilename = argv[argId];
+			}
+			else if ((0 == strcmp("-iff", argv[argId]) && (argId + 1 < argc)))
+			{
+				argId++;
+				params.dstIffFilename = argv[argId];
 			}
 			else if ((0 == strcmp("-p", argv[argId]) && (argId + 1 < argc)))
 			{
@@ -781,7 +807,6 @@ static void outputBitplanAtariLine(int bitplanCount, const u8* pixels, int w, FI
 bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFilename)
 {
 	assert(m_pixels);
-	assert(!params.atari);
 
 	printf("Saving %s %s binary file \"%s\"...\n", params.atari ? "Atari" : "Amiga", 
 		params.chunky?"chunky":"bitplan",
@@ -847,6 +872,113 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 				sprCount++;
 			}
 		}
+		fclose(hf);
+		ret = true;
+	}
+	else
+	{
+		printf("ERROR: Unable to write \"%s\"\n", sFilename);
+	}
+
+	return ret;
+}
+
+static void w8(FILE* h, uint8_t v)
+{
+	fputc(v, h);
+}
+
+static void w16(FILE* h, uint16_t v)
+{
+	fputc(uint8_t(v >> 8), h);
+	fputc(uint8_t(v>>0), h);
+}
+
+static void w32(FILE* h, uint32_t v)
+{
+	w16(h, uint16_t(v >> 16));
+	w16(h, uint16_t(v >> 0));
+}
+
+bool	AmigAtariBitmap::SaveIff(const ConvertParams& params, const char* sFilename)
+{
+	assert(m_pixels);
+	assert(!params.chunky);
+	assert(!params.uninterleaved);
+	assert(!params.atari);
+
+	printf("Saving IFF bitmap file \"%s\"...\n", sFilename);
+	bool ret = false;
+	FILE* hf;
+	if (0 == fopen_s(&hf, sFilename, "wb"))
+	{
+		fwrite("FORM", 1, 4, hf);
+		w32(hf, 0);		// dummy size
+		fwrite("ILBMBMHD", 1, 8, hf);
+		w32(hf, 0x14);	// BMHD size
+		w16(hf, m_w);
+		w16(hf, m_h);
+		w16(hf, 0);
+		w16(hf, 0);
+		w8(hf, m_bpc);
+		w8(hf, 0);	// masking
+		w8(hf, 0);  // no compression
+		w8(hf, 0);  // padding
+		w16(hf, 0);	// transparent color
+		w8(hf, 4);  // x aspect
+		w8(hf, 3);  // y aspect
+		w16(hf, 0);
+		w16(hf, 0);
+		if (m_ham)
+		{
+			fwrite("CAMG", 1, 4, hf);
+			w32(hf, 4);
+			w32(hf, 0x800);	// Amiga HAM mode bit
+		}
+		fwrite("CMAP", 1, 4, hf);
+		const int colorCount = 1 << m_bpc;
+		w32(hf, colorCount*3);
+		for (int i = 0; i < colorCount; i++)
+		{
+			// we don't use toPngPixel, it seems amiga HAM IFF files use RRGGBB instead
+			w8(hf, (m_palettes[i].GetR()<<4)|(m_palettes[i].GetR()<<0));
+			w8(hf, (m_palettes[i].GetG()<<4)|(m_palettes[i].GetG()<<0));
+			w8(hf, (m_palettes[i].GetB()<<4)|(m_palettes[i].GetB()<<0));
+		}
+
+		if (m_multiPalette)
+		{
+			assert(m_ham);
+			fwrite("SHAM", 1, 4, hf);
+			const int chunkSize = 2 + m_h*16*2 + ((m_h & 1)?32:0);
+			w32(hf, chunkSize);
+			w16(hf, 0);	// SHAM version
+			for (int i = 0; i < m_h*16; i++)
+				w16(hf, uint16_t(m_palettes[i].GetRaw12bitsColor()));
+			if (m_h & 1)
+			{
+				for (int i = 0; i < 16; i++)
+					w16(hf, 0);
+			}
+		}
+
+		fwrite("BODY", 1, 4, hf);
+		const int linePitch = m_w / 8;
+		w32(hf, m_h*linePitch*m_bpc);
+
+		for (int y = 0; y < m_h; y++)
+		{
+			for (int p = 0; p < m_bpc; p++)
+			{
+				const u8* pixels = m_pixels + y*m_w;
+				outputBitplanLine(p, pixels, m_w, hf);
+			}
+		}
+
+		const int formSize = ftell(hf)-8;
+		fseek(hf, 4, SEEK_SET);
+		w32(hf, formSize);
+		fseek(hf, 0, SEEK_END);
 		fclose(hf);
 		ret = true;
 	}
@@ -1125,7 +1257,7 @@ int	AmigAtariBitmap::GetPixelId(int x, int y) const
 
 int main(int argc, char*argv[])
 {
-	printf("AmigAtari Bitmap Converter v2.00 by Leonard/Oxygene\n"
+	printf("AmigAtari Bitmap Converter v2.01 by Leonard/Oxygene\n"
 	       "(GPU Enhanced version)\n\n");
 
 	ConvertParams params;
@@ -1286,8 +1418,14 @@ int main(int argc, char*argv[])
 				if (params.dstBinFilename)
 					SaveRGBFile(params, src444, w, h, params.dstBinFilename);
 			}
-			else if (params.dstBinFilename)
-				out.SaveBitplans(params, params.dstBinFilename);
+			else
+			{
+				if (params.dstBinFilename)
+					out.SaveBitplans(params, params.dstBinFilename);
+				if (params.dstIffFilename)
+					out.SaveIff(params, params.dstIffFilename);
+			}
+
 			if (params.dstPalFilename)
 				out.SavePalettes(params, params.dstPalFilename);
 			if (params.dstPreviewFilename)

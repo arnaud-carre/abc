@@ -1,4 +1,4 @@
-# ABC (AmigAtari Bitmap Converter) v2.00
+# ABC (AmigAtari Bitmap Converter) v2.01
 
 AmigAtari Bitmap Converter (abc) is a command line tool to convert bitmap images into ready to use binary data. Main use case is demo creation.
 One key feature is brute force best palette search when color quantization is needed. GPU computing power is used to make this brute force search faster!
@@ -36,7 +36,7 @@ Convert font.png into 3 bitplans font of 32*24 pixels per letter.
 ## Command line options
 
 ````
-AmigAtari Bitmap Converter 2.0 by Leonard/Oxygene
+AmigAtari Bitmap Converter v2.01 by Leonard/Oxygene
 (GPU Enhanced version)
 
 Usage:
@@ -45,23 +45,25 @@ Usage:
 Export modes:
         -bpc <n> : output classic n bitplans bitmap
         -rgb : output 16bits rgb binary
-        -mpp : use one palette per line ( more colors )
         -ham : convert to Amiga HAM6 format (brute force best result)
         -sham : convert to Amiga Sliced-HAM6 format (brute force best result)
         -sham5b : convert to best quality Amiga SHAM5b (31 shades) (brute force best result)
-Options:
+Output files options:
         -b <file> : bitmap binary output file
         -p <file> : palette binary output file
         -preview <file> : PC preview PNG output image
-        -cpu : force CPU usage for HAM or -quantize option instead of GPU
-        -quantize : if src has more color than supported by bitplan, reduce colors
-        -uninterleaved: save each complete amiga bitplan (not interleaved per line)
-        -forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)
-        -remap <x> <y> <i>: consider pixel (x,y) as color index <i>
-        -swap <id0> <id1>: swap color index id0 with color index id1
+        -iff <file> : output Amiga compatible IFF file
+Options:
+        -mpp : use one palette per line ( more colors )
+        -quantize : if src has more color than supported by # of bitplan(s), reduce colors
         -floyd : use Floyd dithering during RGB888 to 444 or 555 quantization (HAM modes)
         -sierra : use Sierra dithering during RGB888 to 444 or 555 quantization (HAM modes)
         -bayer : use ordered Bayer dithering during RGB888 to 444 or 555 quantization (HAM modes)
+        -uninterleaved: save each complete amiga bitplan (not interleaved per line)
+        -cpu : force CPU usage for HAM or -quantize option instead of GPU
+        -forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)
+        -remap <x> <y> <i>: consider pixel (x,y) as color index <i>
+        -swap <id0> <id1>: swap color index id0 with color index id1
         -chunky : store bitmap file in chunky mode (4bits per pixel)
         -amiga : use Amiga bitplan format output (default)
         -atari : use Atari bitplan format output

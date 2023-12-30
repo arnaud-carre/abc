@@ -1,0 +1,5 @@
+v2.01
+	- added "-iff <filename>" output support
+
+v2.00
+	- first public release

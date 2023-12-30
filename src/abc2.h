@@ -89,6 +89,7 @@ struct ConvertParams
 	const char* dstBinFilename;
 	const char* dstPalFilename;
 	const char* dstPreviewFilename;
+	const char* dstIffFilename;
 
 	int			srcRealColorCount;
 	int			colorDepthCount;
@@ -151,6 +152,7 @@ struct AmigAtariBitmap
 	int			GetPixelId(int x, int y) const;
 	bool		ColorIndexRemap(int oldId, int newId);
 	bool		SaveBitplans(const ConvertParams& params, const char* sFilename);
+	bool		SaveIff(const ConvertParams& params, const char* sFilename);
 	bool		SavePalettes(const ConvertParams& params, const char* sFilename);
 	bool		SavePcPreview(const ConvertParams& params, const char* sFilename);
 

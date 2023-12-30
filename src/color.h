@@ -83,7 +83,7 @@ struct Color444
 		const int idx = (v0 << 4) | v1;
 		return LazyTables::distB[idx];
 	}
-
+	uint16_t GetRaw12bitsColor() const { return uint16_t(value); }
 	ColorError_t	Distance(const Color444 rv) const
 	{
 		const ColorError_t distR = DistanceR(GetR(), rv.GetR());
