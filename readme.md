@@ -17,9 +17,14 @@ One key feature is brute force best palette search when color quantization is ne
 - bitplan or 4bits chunky format support
 
 ## Exemple
-Convert "cycle-op.png" 24bits image into a sliced **HAM** amiga picture, floyd steinberg dithering, and "cycle-op-preview.png" preview image
+Convert 24bits "cycle-op.png" image into a standard 32 colors ( 5 bitplans ) picture. Color quantization algorithm is a brute force search to get the ultimate palette. Brute force loops are running on your GPU to get great speed boost.
 ````
-  abc2.exe cycle-op.png -sham -floyd -b cycle-op.gfx -p cycle-op.pal -preview cycle-op-preview_sham.png
+  abc2.exe cycle-op.png -bpc 5 -quantize -floyd -b cycle-op.gfx -p cycle-op.pal -preview cycle-op-preview_32c.png
+````
+
+Convert "cycle-op.png" 24bits image into a sliced **HAM** amiga picture, floyd steinberg dithering, and "cycle-op-sham.png" and "cycle-op-sham.iff" as preview images
+````
+  abc2.exe cycle-op.png -sham -floyd -b cycle-op.gfx -p cycle-op.pal -preview cycle-op-sham.png -iff cycle-op-sham.iff
 ````
 
 Convert oxg.png into 2 bitplans. Sprite sheet of 17 lines. Then, ensure pixel color at (0,18) will be remap to index 0, (31,17) to index 1, (3,3) to index 2 and (0,0) to index 3. Use Atari STE color format
@@ -31,7 +36,6 @@ Convert font.png into 3 bitplans font of 32*24 pixels per letter.
 ````
   abc2.exe oxg.png -sprw 32 -sprh 24 -bpc 3 -b font.gfx -p font.pal
 ````
-
 
 ## Command line options
 
