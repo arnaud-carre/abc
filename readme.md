@@ -84,7 +84,7 @@ Options:
 
 ## Credits
 
-- Written by Arnaud Carré aka Leonard/Oxygene
+- Written by [Arnaud Carré](https://twitter.com/leonard_coder) aka Leonard/Oxygene
 - abc2 is using [libspng](https://github.com/randy408/libspng) and [miniz](https://github.com/richgel999/miniz) for PNG file reading & writing. 
 
 ## Links
