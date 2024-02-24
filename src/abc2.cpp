@@ -13,6 +13,7 @@
 #include "abc2.h"
 #include "ham.h"
 #include "dithering.h"
+#include "tileset.h"
 
 ConvertParams::ConvertParams()
 {
@@ -28,6 +29,9 @@ ConvertParams::ConvertParams()
 	expRegionY = -1;
 	expRegionW = -1;
 	expRegionH = -1;
+
+	tileSizeX = 0;
+	tileSizeY = 0;
 
 	remapCount = 0;
 	ham = false;
@@ -157,10 +161,22 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 {
 	bool ret = true;
 
+	imgW = bitmap.GetWidth();
+	imgH = bitmap.GetHeight();
+
 	if (NULL == srcFilename)
 	{
 		printf("ERROR: You should specify a source PNG filename\n");
 		ret = false;
+	}
+
+	if ( dstTilemapFilename || dstTilesetFilename )
+	{
+		if ( !tilemapMode() )
+		{
+			printf("ERROR: You should specify a tile size when outputing tileset or tilemap (-tilesize)\n");
+			ret = false;
+		}
 	}
 
 	int hamCount = 0;
@@ -251,6 +267,17 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 				ret = false;
 			}
 		}
+
+		if ( tilemapMode() )
+		{
+			if (( imgW % tileSizeX ) || (imgH % tileSizeY))
+			{
+				printf("ERROR: Image size should be exact multiple of tile size (-tilesize)\n");
+				ret = false;
+			}
+		}
+
+
 	}
 	else
 	{
@@ -259,10 +286,13 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 			printf("ERROR: You should use -bpc when using -chunky\n");
 			ret = false;
 		}
-	}
 
-	imgW = bitmap.GetWidth();
-	imgH = bitmap.GetHeight();
+		if ( tilemapMode() )
+		{
+			printf("ERROR: tile-map mode only work with bitplans ( -bpc )\n");
+			ret = false;
+		}
+	}
 
 	if ((multiPalette) || AnyHam())
 	{
@@ -393,6 +423,8 @@ void	Help()
 			"Output files options:\n"
 			"\t-b <file> : bitmap binary output file\n"
 			"\t-p <file> : palette binary output file\n"
+			"\t-t <file> : tile-set binary output file\n"
+			"\t-m <file> : tile-map binary output file\n"
 			"\t-preview <file> : PC preview PNG output image\n"
 			"\t-iff <file> : output Amiga compatible IFF file\n"
 			"Options:\n"
@@ -405,6 +437,7 @@ void	Help()
 			"\t-uninterleaved: save each complete amiga bitplan (not interleaved per line)\n"
 			"\t-cpu : force CPU usage for HAM or -quantize option instead of GPU\n"
 			"\t-forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)\n"
+			"\t-tilesize <x> <y> : set tile size for tileset and tilemap generation (-t and -m)\n"
 			"\t-remap <x> <y> <i>: consider pixel (x,y) as color index <i>\n"
 			"\t-swap <id0> <id1>: swap color index id0 with color index id1\n"
 			"\t-chunky : store bitmap file in chunky mode (4bits per pixel)\n"
@@ -491,6 +524,16 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 				argId++;
 				params.dstPreviewFilename = argv[argId];
 			}
+			else if ((0 == strcmp("-t", argv[argId]) && (argId + 1 < argc)))
+			{
+				argId++;
+				params.dstTilesetFilename = argv[argId];
+			}
+			else if ((0 == strcmp("-m", argv[argId]) && (argId + 1 < argc)))
+			{
+				argId++;
+				params.dstTilemapFilename = argv[argId];
+			}
 			else if ((0 == strcmp("-forcecolor", argv[argId]) && (argId + 2 < argc)))
 			{
 				argId++;
@@ -522,6 +565,13 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 				argId++;
 				int newId = atoi(argv[argId]);
 				params.AddSwap(oldId, newId);
+			}
+			else if ((0 == strcmp("-tilesize", argv[argId]) && (argId + 2 < argc)))
+			{
+				argId++;
+				params.tileSizeX = atoi(argv[argId]);
+				argId++;
+				params.tileSizeY = atoi(argv[argId]);
 			}
 			else if (0 == strcmp("-mpp", argv[argId]))
 			{
@@ -780,7 +830,7 @@ bool	ConvertToStandardIndexed(const ConvertParams& params, pngFile& bitmap, Amig
 	return true;
 }
 
-static void outputBitplanLine(int bitplan, const u8* pixels, int w, FILE* hf)
+void outputBitplanLine(int bitplan, const u8* pixels, int w, FILE* hf)
 {
 	for (int x = 0; x < w; x += 8)
 	{
@@ -1262,7 +1312,7 @@ int	AmigAtariBitmap::GetPixelId(int x, int y) const
 
 int main(int argc, char*argv[])
 {
-	printf("AmigAtari Bitmap Converter v2.01 by Leonard/Oxygene\n"
+	printf("AmigAtari Bitmap Converter v2.02 by Leonard/Oxygene\n"
 	       "(GPU Enhanced version)\n\n");
 
 	ConvertParams params;
@@ -1429,6 +1479,19 @@ int main(int argc, char*argv[])
 					out.SaveBitplans(params, params.dstBinFilename);
 				if (params.dstIffFilename)
 					out.SaveIff(params, params.dstIffFilename);
+
+				if ( params.tilemapMode() )
+				{
+					TileSet ts;
+					if ( ts.Create(out, params.tileSizeX, params.tileSizeY))
+					{
+						if (params.dstTilesetFilename)
+							ts.saveTileset(params.dstTilesetFilename, out.m_bpc);
+						if (params.dstTilemapFilename)
+							ts.saveTilemap(params.dstTilemapFilename);
+					}
+				}
+
 			}
 
 			if (params.dstPalFilename)
@@ -1446,8 +1509,6 @@ int main(int argc, char*argv[])
 				else
 					out.SavePcPreview(params, params.dstPreviewFilename);
 			}
-
-
 
 			err = 0;
 			free(src444);

@@ -180,6 +180,7 @@
     <ClCompile Include="extern\miniz\miniz.c" />
     <ClCompile Include="ham.cpp" />
     <ClCompile Include="pngFile.cpp" />
+    <ClCompile Include="tileset.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc2.h" />
@@ -194,6 +195,7 @@
     <ClInclude Include="shaders\MppCompute.h" />
     <ClInclude Include="shaders\ShamCompute.h" />
     <ClInclude Include="shaders\SinglePalCompute.h" />
+    <ClInclude Include="tileset.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\HamCompute.hlsl">

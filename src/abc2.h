@@ -5,7 +5,7 @@
 	Written by Arnaud Carré aka Leonard/Oxygene (@leonard_coder)
 --------------------------------------------------------------------*/
 #pragma once
-
+#include <stdio.h>
 #include <string.h>
 #include "pngFile.h"
 #include "dithering.h"
@@ -29,6 +29,7 @@ struct ConvertParams
 	bool		sham;
 	bool		sham5b;
 	bool		AnyHam() const { return ham | sham | sham5b; }
+	bool		tilemapMode() const {return ((tileSizeX > 0) && (tileSizeY > 0)); }
 	bool		gpu;
 	int			imgW;
 	int			imgH;
@@ -44,6 +45,9 @@ struct ConvertParams
 	int			expRegionH;
 	bool		chunky;
 	bool		uninterleaved;
+
+	int tileSizeX;
+	int tileSizeY;
 
 	int			sprW;
 	int			sprH;
@@ -90,6 +94,8 @@ struct ConvertParams
 	const char* dstPalFilename;
 	const char* dstPreviewFilename;
 	const char* dstIffFilename;
+	const char* dstTilesetFilename;
+	const char* dstTilemapFilename;
 
 	int			srcRealColorCount;
 	int			colorDepthCount;
@@ -170,4 +176,5 @@ struct Color555;
 
 int ColorDepthCount(const pngFile& bitmap);
 bool	MultiPaletteOptimize(const u8* pixels, int w, int h, int bitplanCount, bool hamLayout);
+void outputBitplanLine(int bitplan, const u8* pixels, int w, FILE* hf);
 

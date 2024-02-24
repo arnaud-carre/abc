@@ -51,6 +51,9 @@
     <ClCompile Include="extern\miniz\miniz.c">
       <Filter>extern\miniz</Filter>
     </ClCompile>
+    <ClCompile Include="tileset.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc2.h">
@@ -88,6 +91,9 @@
     </ClInclude>
     <ClInclude Include="shaders\SinglePalCompute.h">
       <Filter>shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="tileset.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
