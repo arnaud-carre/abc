@@ -13,8 +13,6 @@
 
 static const int kBits = 4;
 
-static const int kDitherErrorBufferPrec = 5;
-
 void	ErrorDiffuseInt(ColorErrorI* buffer, int x, int y, int w, int h, const ColorErrorI& err, int coef)
 {
 	if (((unsigned int)x < (unsigned int)w) &&
@@ -26,13 +24,24 @@ void	ErrorDiffuseInt(ColorErrorI* buffer, int x, int y, int w, int h, const Colo
 	}
 }
 
-ColorErrorI	ReadErrorInt(const ColorErrorI& errorPrec)
+ColorErrorI	ReadErrorInt(const ColorErrorI& errorPrec, int prec)
 {
 	ColorErrorI rc = errorPrec;
-	rc.r >>= kDitherErrorBufferPrec;
-	rc.g >>= kDitherErrorBufferPrec;
-	rc.b >>= kDitherErrorBufferPrec;
+	rc.r /= prec;
+	rc.g /= prec;
+	rc.b /= prec;
 	return rc;
+}
+
+static int	GetDitheringPrec(Dithering_t dither)
+{
+	switch ( dither )
+	{
+		case Dithering_t::kFloyd:	return 32; break;
+		case Dithering_t::kSierra:	return 32; break;
+		case Dithering_t::kJarvis:	return 48; break;
+		default: return 1; break;
+	}
 }
 
 static void	DiffuseSierraInt(ColorErrorI* buffer, int x, int y, int w, int h, const ColorErrorI& err)
@@ -47,6 +56,22 @@ static void	DiffuseSierraInt(ColorErrorI* buffer, int x, int y, int w, int h, co
 	ErrorDiffuseInt(buffer, x - 1, y + 2, w, h, err, 2);
 	ErrorDiffuseInt(buffer, x + 0, y + 2, w, h, err, 3);
 	ErrorDiffuseInt(buffer, x + 1, y + 2, w, h, err, 2);
+}
+
+static void	DiffuseJarvisInt(ColorErrorI* buffer, int x, int y, int w, int h, const ColorErrorI& err)
+{
+	ErrorDiffuseInt(buffer, x + 1, y + 0, w, h, err, 7);
+	ErrorDiffuseInt(buffer, x + 2, y + 0, w, h, err, 5);
+	ErrorDiffuseInt(buffer, x - 2, y + 1, w, h, err, 3);
+	ErrorDiffuseInt(buffer, x - 1, y + 1, w, h, err, 5);
+	ErrorDiffuseInt(buffer, x + 0, y + 1, w, h, err, 7);
+	ErrorDiffuseInt(buffer, x + 1, y + 1, w, h, err, 5);
+	ErrorDiffuseInt(buffer, x + 2, y + 1, w, h, err, 3);
+	ErrorDiffuseInt(buffer, x - 2, y + 2, w, h, err, 1);
+	ErrorDiffuseInt(buffer, x - 1, y + 2, w, h, err, 3);
+	ErrorDiffuseInt(buffer, x + 0, y + 2, w, h, err, 5);
+	ErrorDiffuseInt(buffer, x + 1, y + 2, w, h, err, 3);
+	ErrorDiffuseInt(buffer, x + 2, y + 2, w, h, err, 1);
 }
 
 static void	DiffuseFloydInt(ColorErrorI* buffer, int x, int y, int w, int h, const ColorErrorI& err)
@@ -146,6 +171,7 @@ Color444* ColorDepthQuantize444WithDitheringInt(const pngFile& src, Dithering_t 
 	const int imgW = src.GetWidth();
 	const int imgH = src.GetHeight();
 
+	const int prec = GetDitheringPrec(dither);
 	ColorErrorI* errorBuffer = (ColorErrorI*)malloc(imgW*imgH * sizeof(ColorErrorI));
 	memset(errorBuffer, 0, imgW*imgH * sizeof(ColorErrorI));
 	Color444* quantImage = (Color444*)malloc(imgW*imgH * sizeof(Color444));
@@ -173,7 +199,7 @@ Color444* ColorDepthQuantize444WithDitheringInt(const pngFile& src, Dithering_t 
 			else
 			{
 				ColorErrorI correctedPixel = ColorErrorI::FromPngPixel(color);
-				correctedPixel.Add(ReadErrorInt(errorBuffer[y*imgW + x]));
+				correctedPixel.Add(ReadErrorInt(errorBuffer[y*imgW + x], prec));
 
 				quantPixel = ColorErrorI::QuantizeN(correctedPixel, bitPerComponent);
 				ColorErrorI quantPixelI = ColorErrorI::FromColor444(quantPixel);
@@ -184,6 +210,8 @@ Color444* ColorDepthQuantize444WithDitheringInt(const pngFile& src, Dithering_t 
 
 				if ( kFloyd == dither )
 					DiffuseFloydInt(errorBuffer, x, y, imgW, imgH, errorPixel);
+				else if (kJarvis == dither)
+					DiffuseJarvisInt(errorBuffer, x, y, imgW, imgH, errorPixel);
 				else
 					DiffuseSierraInt(errorBuffer, x, y, imgW, imgH, errorPixel);
 			}
@@ -201,6 +229,7 @@ Color555* ColorDepthQuantize555WithDitheringInt(const pngFile& src, Dithering_t 
 	const int imgW = src.GetWidth();
 	const int imgH = src.GetHeight();
 
+	const int prec = GetDitheringPrec(dither);
 	ColorErrorI* errorBuffer = (ColorErrorI*)malloc(imgW*imgH * sizeof(ColorErrorI));
 	memset(errorBuffer, 0, imgW*imgH * sizeof(ColorErrorI));
 	Color555* quantImage = (Color555*)malloc(imgW*imgH * sizeof(Color555));
@@ -228,7 +257,7 @@ Color555* ColorDepthQuantize555WithDitheringInt(const pngFile& src, Dithering_t 
 			else
 			{
 				ColorErrorI correctedPixel = ColorErrorI::FromPngPixel(color);
-				correctedPixel.Add(ReadErrorInt(errorBuffer[y*imgW + x]));
+				correctedPixel.Add(ReadErrorInt(errorBuffer[y*imgW + x], prec));
 
 				quantPixel = ColorErrorI::Quantize5(correctedPixel);
 				ColorErrorI quantPixelI = ColorErrorI::FromColor555(quantPixel);
@@ -239,6 +268,8 @@ Color555* ColorDepthQuantize555WithDitheringInt(const pngFile& src, Dithering_t 
 
 				if (kFloyd == dither)
 					DiffuseFloydInt(errorBuffer, x, y, imgW, imgH, errorPixel);
+				else if (kJarvis == dither)
+					DiffuseJarvisInt(errorBuffer, x, y, imgW, imgH, errorPixel);
 				else
 					DiffuseSierraInt(errorBuffer, x, y, imgW, imgH, errorPixel);
 			}

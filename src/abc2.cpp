@@ -399,6 +399,7 @@ void	Help()
 			"\t-mpp : use one palette per line ( more colors )\n"
 			"\t-quantize : if src has more color than supported by # of bitplan(s), reduce colors\n"
 			"\t-floyd : use Floyd dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
+			"\t-jarvis : use Jarvis-Judice-Ninke dithering during RGB888 to 444 or 555 quantization\n"
 			"\t-sierra : use Sierra dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
 			"\t-bayer : use ordered Bayer dithering during RGB888 to 444 or 555 quantization (HAM modes)\n"
 			"\t-uninterleaved: save each complete amiga bitplan (not interleaved per line)\n"
@@ -561,6 +562,10 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 			else if (0 == strcmp("-floyd", argv[argId]))
 			{
 				params.dithering = Dithering_t::kFloyd;
+			}
+			else if (0 == strcmp("-jarvis", argv[argId]))
+			{
+				params.dithering = Dithering_t::kJarvis;
 			}
 			else if (0 == strcmp("-bayer", argv[argId]))
 			{
@@ -1290,7 +1295,7 @@ int main(int argc, char*argv[])
 				if (bitmap.GetPalette())
 					bitmap.ConvertTo24bits();
 
-				const char* sDitherName[] = { "No","Floyd","Sierra","Bayer" };
+				const char* sDitherName[kDitheringMax] = { "No", "Floyd", "Sierra", "Bayer", "Jarvis" };
 				if (params.sham5b)
 				{
 					printf("RGB888 quantization to RGB555 (%s dithering)...\n", sDitherName[int(params.dithering)]);

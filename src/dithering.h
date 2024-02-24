@@ -14,7 +14,9 @@ enum Dithering_t
 	kNone,
 	kFloyd,
 	kSierra,
-	kBayer
+	kBayer,
+	kJarvis,
+	kDitheringMax
 };
 
 Color555* ColorDepthQuantize555WithDitheringInt(const pngFile& src, Dithering_t dither);
