@@ -25,10 +25,10 @@ ConvertParams::ConvertParams()
 	bitplanCount = -1;
 	gpu = true;
 
-	expRegionX = -1;
-	expRegionY = -1;
-	expRegionW = -1;
-	expRegionH = -1;
+	cropX = 0;
+	cropY = 0;
+	cropW = 0;
+	cropH = 0;
 
 	tileSizeX = 0;
 	tileSizeY = 0;
@@ -294,29 +294,6 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 		}
 	}
 
-	if ((multiPalette) || AnyHam())
-	{
-		if ((expRegionX >= 0) || (expRegionY >= 0) || (expRegionW >= 0) || (expRegionH >= 0))
-		{
-			printf("ERROR: Export region is not supported in multi-palette or HAM mode\n");
-			ret = false;
-		}
-	}
-
-	if (expRegionX < 0) expRegionX = 0;
-	if (expRegionY < 0) expRegionY = 0;
-	if (expRegionW < 0) expRegionW = imgW;
-	if (expRegionH < 0) expRegionH = imgH;
-
-	if ((expRegionX + expRegionW > imgW) ||
-		(expRegionY + expRegionH > imgH) ||
-		(expRegionX < 0) ||
-		(expRegionY < 0))
-	{
-		printf("ERROR: Export region out of bound (%d,%d,%d,%d)\n", expRegionX, expRegionY, expRegionW, expRegionH);
-		ret = false;
-	}
-
 	if (remapCount > 0 )
 	{
 		for (int r = 0; r < remapCount; r++)
@@ -331,12 +308,12 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 	}
 
 	if (0 == sprW)
-		sprW = expRegionW;
+		sprW = imgW;
 
 	if (0 == sprH)
-		sprH = expRegionH;
+		sprH = imgH;
 
-	const int maxSprite = (expRegionW / sprW) * (expRegionH / sprH);
+	const int maxSprite = (imgW / sprW) * (imgH / sprH);
 	if (0 == sprCount)
 		sprCount = maxSprite;
 	else
@@ -484,25 +461,25 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 				argId++;
 				params.sprCount = atoi(argv[argId]);
 			}
-			else if ((0 == strcmp("-erx", argv[argId]) && (argId + 1 < argc)))
+			else if ((0 == strcmp("-cropx", argv[argId]) && (argId + 1 < argc)))
 			{
 				argId++;
-				params.expRegionX = atoi(argv[argId]);
+				params.cropX = atoi(argv[argId]);
 			}
-			else if ((0 == strcmp("-ery", argv[argId]) && (argId + 1 < argc)))
+			else if ((0 == strcmp("-cropy", argv[argId]) && (argId + 1 < argc)))
 			{
 				argId++;
-				params.expRegionY = atoi(argv[argId]);
+				params.cropY = atoi(argv[argId]);
 			}
-			else if ((0 == strcmp("-erw", argv[argId]) && (argId + 1 < argc)))
+			else if ((0 == strcmp("-cropw", argv[argId]) && (argId + 1 < argc)))
 			{
 				argId++;
-				params.expRegionW = atoi(argv[argId]);
+				params.cropW = atoi(argv[argId]);
 			}
-			else if ((0 == strcmp("-erh", argv[argId]) && (argId + 1 < argc)))
+			else if ((0 == strcmp("-croph", argv[argId]) && (argId + 1 < argc)))
 			{
 				argId++;
-				params.expRegionH = atoi(argv[argId]);
+				params.cropH = atoi(argv[argId]);
 			}
 			else if ((0 == strcmp("-b", argv[argId]) && (argId + 1 < argc)))
 			{
@@ -731,27 +708,24 @@ bool	Convert24bToIndexed(const ConvertParams& params, pngFile& bitmap, AmigAtari
 	const int imgw = bitmap.GetWidth();
 	const int imgh = bitmap.GetHeight();
 
-	const int w = params.expRegionW;
-	const int h = params.expRegionH;
-
 	out.m_bpc = params.bitplanCount;
-	out.m_w = w;
-	out.m_h = h;
+	out.m_w = imgw;
+	out.m_h = imgh;
 	out.m_multiPalette = false;
 	const int colorsCount = 1 << out.m_bpc;
 	out.m_palettes = (Color444*)malloc(colorsCount * sizeof(Color444));
 	memset(out.m_palettes, 0, colorsCount * sizeof(Color444));
 
-	out.m_pixels = (u8*)malloc(w*h * sizeof(u8));
+	out.m_pixels = (u8*)malloc(imgw*imgh * sizeof(u8));
 
 	u8* pWrite = out.m_pixels;
 	int16_t* usedColors = (int16_t*)malloc((1 << 24) * sizeof(int16_t));	// 33MiB alloc (640KiB is enough for anybody)
 	memset(usedColors, 0xff, (1 << 24)*sizeof(int16_t));
 
 	int palIndex = 0;
-	for (int y = 0; y < h; y++)
+	for (int y = 0; y < imgh; y++)
 	{
-		for (int x = 0; x < w; x++)
+		for (int x = 0; x < imgw; x++)
 		{
 			pngPixel color;
 			bitmap.GetPixelColor(x, y, color);
@@ -780,11 +754,8 @@ bool	ConvertToStandardIndexed(const ConvertParams& params, pngFile& bitmap, Amig
 	assert(!params.multiPalette);
 	assert(!params.AnyHam());
 
-	const int imgw = bitmap.GetWidth();
-	const int imgh = bitmap.GetHeight();
-
-	const int w = params.expRegionW;
-	const int h = params.expRegionH;
+	const int w = bitmap.GetWidth();
+	const int h = bitmap.GetHeight();
 
 	out.m_bpc = params.bitplanCount;
 	out.m_w = w;
@@ -819,7 +790,7 @@ bool	ConvertToStandardIndexed(const ConvertParams& params, pngFile& bitmap, Amig
 		for (int x = 0; x < w; x++)
 		{
 			BYTE index;
-			bitmap.GetPixelIndex(x + params.expRegionX, y + params.expRegionY, index);
+			bitmap.GetPixelIndex(x, y, index);
 			// Remap into shrinked palette
 			const u8 remapId = remapTable[index];
 			assert(remapId < unsigned(colorsCount));
@@ -870,7 +841,6 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 	FILE* hf;
 	if (0 == fopen_s(&hf, sFilename, "wb"))
 	{
-		printf("  (export region [%d,%d,%d,%d])\n", params.expRegionX, params.expRegionY, params.expRegionW, params.expRegionH);
 		printf("  %d bitplans, %d block(s) of %d*%d each...\n", m_bpc, params.sprCount, params.sprW, params.sprH);
 
 		int sprCount = 0;
@@ -1329,6 +1299,20 @@ int main(int argc, char*argv[])
 	pngFile bitmap;
 	if (bitmap.Load(params.srcFilename))
 	{
+
+		if (0 == params.cropW)
+			params.cropW = bitmap.GetWidth();
+		if (0 == params.cropH)
+			params.cropH = bitmap.GetHeight();
+
+		if ( !params.cropValidate(bitmap.GetWidth(), bitmap.GetHeight()))
+		{
+			printf("ERROR: crop values outside of input image bounds\n");
+			return -1;
+		}
+
+		bitmap.Crop(params.cropX, params.cropY, params.cropW, params.cropH);
+
 		if (params.Validate(bitmap))
 		{
 			printf("%dx%d pixels, %d different colors (color depth use %d values)\n", params.imgW, params.imgH, params.srcRealColorCount, params.colorDepthCount);

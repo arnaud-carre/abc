@@ -19,6 +19,7 @@ public:
 
 
 	bool	Load(const char* filename);
+	bool Crop(int x, int y, int w, int h);
 
 	bool IsValid() const { return m_image != NULL; }
 

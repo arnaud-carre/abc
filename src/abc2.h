@@ -39,10 +39,11 @@ struct ConvertParams
 	bool		atari;
 	bool		ste;				// ste palette color format
 
-	int			expRegionX;
-	int			expRegionY;
-	int			expRegionW;
-	int			expRegionH;
+	int cropX;
+	int cropY;
+	int cropW;
+	int cropH;
+
 	bool		chunky;
 	bool		uninterleaved;
 
@@ -87,6 +88,17 @@ struct ConvertParams
 			rm.newId = newId;
 			rm.oldId = oldId;
 		}
+	}
+
+	bool	cropValidate(int imgW, int imgH)
+	{
+		if ((cropX < 0) || (cropY < 0))
+			return false;
+		if (cropX + cropW > imgW)
+			return false;
+		if (cropY + cropH > imgH)
+			return false;
+		return true;
 	}
 
 	const char*	srcFilename;

@@ -255,4 +255,55 @@ bool	pngRGBASave(const char* filename, const pngPixel* image, int w, int h)
 	return bret;
 }
 
+bool pngFile::Crop(int xc, int yc, int wc, int hc)
+{
+	bool ret = true;
 
+	// early out if crop full image
+	if ((0 == xc ) &&
+		(0 == yc) &&
+		(wc == m_w) &&
+		(hc == m_h))
+	{
+		return true;
+	}
+
+	assert(uint32_t(xc + wc) <= m_w);
+	assert(uint32_t(yc + hc) <= m_h);
+
+	printf("Cropping original %d*%d image using [%d,%d,%d*%d] region\n", m_w, m_h, xc, yc, wc, hc);
+
+	if (m_palette)
+	{
+		uint8_t* newBuffer = (uint8_t*)malloc(wc * hc);
+		for (int y=0;y<hc;y++)
+		{
+			for (int x=0;x<wc;x++)
+			{
+				newBuffer[y * wc + x] = m_image[(yc + y)*m_w + (xc + x)];
+			}
+		}
+		free(m_image);
+		m_image = newBuffer;
+	}
+	else
+	{
+		pngPixel* newBuffer = (pngPixel*)malloc(wc * hc*sizeof(pngPixel));
+		const pngPixel* in = (const pngPixel*)m_image;
+		for (int y=0;y<hc;y++)
+		{
+			for (int x=0;x<wc;x++)
+			{
+				newBuffer[y * wc + x] = in[(yc + y)*m_w + (xc + x)];
+			}
+		}
+		free(m_image);
+		m_image = (uint8_t*)newBuffer;
+	}
+
+	m_w = wc;
+	m_h = hc;
+	ret = true;
+
+	return ret;
+}
