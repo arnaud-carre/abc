@@ -73,17 +73,18 @@ bool	pngFile::ConvertTo24bits()
 	if (NULL == m_palette)
 		return true;
 
-	pngPixel* nb = (pngPixel*)malloc(m_w * m_h * sizeof(pngPixel));
+	pngPixel* newBuffer = (pngPixel*)malloc(m_w * m_h * sizeof(pngPixel));
 	uint32_t count = m_w * m_h;
 	const uint8_t* pr = m_image;
+	pngPixel* wp = newBuffer;
 	for (uint32_t i = 0; i < count; i++)
 	{
-		*nb++ = m_palette[*pr++];
+		*wp++ = m_palette[*pr++];
 	}
 	free(m_image);
 	free(m_palette);
 	m_palette = NULL;
-	m_image = (uint8_t*)nb;
+	m_image = (uint8_t*)newBuffer;
 	return true;
 }
 
