@@ -1299,7 +1299,7 @@ int main(int argc, char*argv[])
 	pngFile bitmap;
 	if (bitmap.Load(params.srcFilename))
 	{
-
+		printf("Loaded input image file (%d*%d, %s)\n", bitmap.GetWidth(), bitmap.GetHeight(), bitmap.GetPalette() ? "8bits indexed" : "24bits");
 		if (0 == params.cropW)
 			params.cropW = bitmap.GetWidth();
 		if (0 == params.cropH)

@@ -95,8 +95,9 @@ bool TileSet::Create(const AmigAtariBitmap& img, int tileSizeX, int tileSizeY)
 
 	printf("Tilemap stats:\n");
 	printf("  Input image %d*%d, tilesize %d*%d\n", img.m_w, img.m_h, tileSizeX, tileSizeY);
-	printf("  Input block count.: %d\n", m_mapW * m_mapH);
-	printf("  Output block count: %d (%d%%)\n", m_tileSetCount, (m_tileSetCount*100)/(m_mapW * m_mapH));
+	printf("  Input block count.: %d (%dKiB of map)\n", m_mapW * m_mapH, (m_mapW * m_mapH*2+1023)>>10);
+	const int planTileSize = (tileSizeX / 8)*img.m_bpc * tileSizeY;
+	printf("  Output block count: %d (%d%%) %dKiB\n", m_tileSetCount, (m_tileSetCount*100)/(m_mapW * m_mapH), (planTileSize*m_tileSetCount+1023)>>10);
 
 	if ( m_tileSetCount >= 65536)
 	{
