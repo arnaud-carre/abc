@@ -325,15 +325,18 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 		}
 	}
 
-	if ((!atari) && (sprW & 7))
+	if (!rgb)
 	{
-		printf("ERROR: Amiga image width should be multiple of 8 pixels\n");
-		ret = false;
-	}
-	if ((atari) && (sprW & 15))
-	{
-		printf("ERROR: Atari Image width should be multiple of 16 pixels\n");
-		ret = false;
+		if ((!atari) && (sprW & 7))
+		{
+			printf("ERROR: Amiga image width should be multiple of 8 pixels\n");
+			ret = false;
+		}
+		if ((atari) && (sprW & 15))
+		{
+			printf("ERROR: Atari Image width should be multiple of 16 pixels\n");
+			ret = false;
+		}
 	}
 
 	const bool hasPal = (bitmap.GetPalette() != NULL);
@@ -1301,9 +1304,9 @@ int main(int argc, char*argv[])
 	{
 		printf("Loaded input image file (%d*%d, %s)\n", bitmap.GetWidth(), bitmap.GetHeight(), bitmap.GetPalette() ? "8bits indexed" : "24bits");
 		if (0 == params.cropW)
-			params.cropW = bitmap.GetWidth();
+			params.cropW = bitmap.GetWidth()-params.cropX;
 		if (0 == params.cropH)
-			params.cropH = bitmap.GetHeight();
+			params.cropH = bitmap.GetHeight()-params.cropY;
 
 		if ( !params.cropValidate(bitmap.GetWidth(), bitmap.GetHeight()))
 		{
