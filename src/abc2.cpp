@@ -428,10 +428,10 @@ void	Help()
 			"\t-sprw <w> : input image contains w pixels width tiles\n"
 			"\t-sprh <h> : input image contains h pixels high tiles\n"
 			"\t-sprc <n> : input image contains n tiles\n"
-			"\t-erx <x> : export region start at x\n"
-			"\t-ery <y> : export region start at y\n"
-			"\t-erw <w> : export region is w pixels width\n"
-			"\t-erh <h> : export region is h pixels high\n");
+			"\t-cropx <x> : crop source image at x position\n"
+			"\t-cropy <y> : crop source image at y position\n"
+			"\t-cropw <w> : crop w pixels width in source image\n"
+			"\t-croph <h> : crop h pixels height in source image\n");
 }
 
 bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
