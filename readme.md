@@ -1,4 +1,4 @@
-# ABC (AmigAtari Bitmap Converter) v2.01
+# ABC (AmigAtari Bitmap Converter) v2.02
 
 AmigAtari Bitmap Converter (abc) is a command line tool to convert bitmap images into ready to use binary data. Main use case is demo creation.
 One key feature is brute force best palette search when color quantization is needed. GPU computing power is used to make this brute force search faster!
@@ -40,46 +40,50 @@ Convert font.png into 3 bitplans font of 32*24 pixels per letter.
 ## Command line options
 
 ````
-AmigAtari Bitmap Converter v2.01 by Leonard/Oxygene
+AmigAtari Bitmap Converter v2.02 by Leonard/Oxygene
 (GPU Enhanced version)
 
 Usage:
-        abc2 <src png file> [-options]
+	abc2 <src png file> [-options]
 
 Export modes:
-        -bpc <n> : output classic n bitplans bitmap
-        -rgb : output 16bits rgb binary
-        -ham : convert to Amiga HAM6 format (brute force best result)
-        -sham : convert to Amiga Sliced-HAM6 format (brute force best result)
-        -sham5b : convert to best quality Amiga SHAM5b (31 shades) (brute force best result)
+	-bpc <n> : output classic n bitplans bitmap
+	-rgb : output 16bits rgb binary
+	-ham : convert to Amiga HAM6 format (brute force best result)
+	-sham : convert to Amiga Sliced-HAM6 format (brute force best result)
+	-sham5b : convert to best quality Amiga SHAM5b (31 shades) (brute force best result)
 Output files options:
-        -b <file> : bitmap binary output file
-        -p <file> : palette binary output file
-        -preview <file> : PC preview PNG output image
-        -iff <file> : output Amiga compatible IFF file
+	-b <file> : bitmap binary output file
+	-p <file> : palette binary output file
+	-t <file> : tile-set binary output file
+	-m <file> : tile-map binary output file
+	-preview <file> : PC preview PNG output image
+	-iff <file> : output Amiga compatible IFF file
 Options:
-        -mpp : use one palette per line ( more colors )
-        -quantize : if src has more color than supported by # of bitplan(s), reduce colors
-        -floyd : use Floyd dithering during RGB888 to 444 or 555 quantization (HAM modes)
-        -sierra : use Sierra dithering during RGB888 to 444 or 555 quantization (HAM modes)
-        -bayer : use ordered Bayer dithering during RGB888 to 444 or 555 quantization (HAM modes)
-        -uninterleaved: save each complete amiga bitplan (not interleaved per line)
-        -cpu : force CPU usage for HAM or -quantize option instead of GPU
-        -forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)
-        -remap <x> <y> <i>: consider pixel (x,y) as color index <i>
-        -swap <id0> <id1>: swap color index id0 with color index id1
-        -chunky : store bitmap file in chunky mode (4bits per pixel)
-        -amiga : use Amiga bitplan format output (default)
-        -atari : use Atari bitplan format output
-        -ste : use Atari STE palette format (Atari default)
-        -stf : use Atari STF palette format (3bits per component)
-        -sprw <w> : input image contains w pixels width tiles
-        -sprh <h> : input image contains h pixels high tiles
-        -sprc <n> : input image contains n tiles
-        -erx <x> : export region start at x
-        -ery <y> : export region start at y
-        -erw <w> : export region is w pixels width
-        -erh <h> : export region is h pixels high
+	-mpp : use one palette per line ( more colors )
+	-quantize : if src has more color than supported by # of bitplan(s), reduce colors
+	-floyd : use Floyd dithering during RGB888 to 444 or 555 quantization (HAM modes)
+	-jarvis : use Jarvis-Judice-Ninke dithering during RGB888 to 444 or 555 quantization
+	-sierra : use Sierra dithering during RGB888 to 444 or 555 quantization (HAM modes)
+	-bayer : use ordered Bayer dithering during RGB888 to 444 or 555 quantization (HAM modes)
+	-uninterleaved: save each complete amiga bitplan (not interleaved per line)
+	-cpu : force CPU usage for HAM or -quantize option instead of GPU
+	-forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)
+	-tilesize <x> <y> : set tile size for tileset and tilemap generation (-t and -m)
+	-remap <x> <y> <i>: consider pixel color at (x,y) as color index <i>
+	-swap <id0> <id1>: swap color index id0 with color index id1
+	-chunky : store bitmap file in chunky mode (4bits per pixel)
+	-amiga : use Amiga bitplan format output (default)
+	-atari : use Atari bitplan format output
+	-ste : use Atari STE palette format (Atari default)
+	-stf : use Atari STF palette format (3bits per component)
+	-sprw <w> : input image contains w pixels width tiles
+	-sprh <h> : input image contains h pixels high tiles
+	-sprc <n> : input image contains n tiles
+	-cropx <x> : crop source image at x position
+	-cropy <y> : crop source image at y position
+	-cropw <w> : crop w pixels width in source image
+	-croph <h> : crop h pixels height in source image
 ````
 
 ## Credits

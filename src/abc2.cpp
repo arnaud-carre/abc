@@ -418,7 +418,7 @@ void	Help()
 			"\t-cpu : force CPU usage for HAM or -quantize option instead of GPU\n"
 			"\t-forcecolor <id> <RGB> : force color index <id> to a RGB 444 value (like ff0 for yellow)\n"
 			"\t-tilesize <x> <y> : set tile size for tileset and tilemap generation (-t and -m)\n"
-			"\t-remap <x> <y> <i>: consider pixel (x,y) as color index <i>\n"
+			"\t-remap <x> <y> <i>: consider pixel color at (x,y) as color index <i>\n"
 			"\t-swap <id0> <id1>: swap color index id0 with color index id1\n"
 			"\t-chunky : store bitmap file in chunky mode (4bits per pixel)\n"
 			"\t-amiga : use Amiga bitplan format output (default)\n"
