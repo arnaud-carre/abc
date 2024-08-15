@@ -1,3 +1,6 @@
+v2.03
+	- added -forcecolor support for all quantized modes.
+
 v2.02
 	- added tileset & tilemap feature ( -tilesize, -m, -t )
 

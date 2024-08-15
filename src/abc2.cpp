@@ -235,6 +235,12 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 			printf("ERROR: -forcecolor should always be used with -quantize or any HAM mode\n");
 			ret = false;
 		}
+		if (gpu)
+		{
+			printf("Warning: -forcecolor option enable, GPU code path is switched OFF in this version\n");
+			gpu = false;
+		}
+		
 	}
 
 	if (bitplanCount > 0)
@@ -1285,7 +1291,7 @@ int	AmigAtariBitmap::GetPixelId(int x, int y) const
 
 int main(int argc, char*argv[])
 {
-	printf("AmigAtari Bitmap Converter v2.02 by Leonard/Oxygene\n"
+	printf("AmigAtari Bitmap Converter v2.03 by Leonard/Oxygene\n"
 	       "(GPU Enhanced version)\n\n");
 
 	ConvertParams params;

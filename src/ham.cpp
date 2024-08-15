@@ -274,22 +274,32 @@ unsigned long threadMainSinglePal(void *pUser)
 unsigned long threadMainSHAM(void *pUser)
 {
 	BruteForceHam::ThreadState* state = (BruteForceHam::ThreadState*)pUser;
+	int bestBruteColor;
+	assert(state->params);
 	for (int line = state->rangeStart; line < state->rangeEnd; line++)
 	{
 		Color444* palette = state->mpp_palettes + line * 16;
 		for (int palEntry = 1; palEntry < 16; palEntry++)		// no use to search color 0 ( fixed to black )
 		{
-			ColorError_t best = kColorErrorMax;
-			int bestBruteColor;
-			for (int bruteColor = 0; bruteColor < 4096; bruteColor++)
+			if (state->params->forceColors[palEntry] < 0)
 			{
-				palette[palEntry].SetRGB444(bruteColor);
-				ColorError_t error = state->solver->LineErrorCompute(line, palette, palEntry + 1);
-				if (error < best)
+
+				ColorError_t best = kColorErrorMax;
+				bestBruteColor = 0;
+				for (int bruteColor = 0; bruteColor < 4096; bruteColor++)
 				{
-					bestBruteColor = bruteColor;
-					best = error;
+					palette[palEntry].SetRGB444(bruteColor);
+					ColorError_t error = state->solver->LineErrorCompute(line, palette, palEntry + 1);
+					if (error < best)
+					{
+						bestBruteColor = bruteColor;
+						best = error;
+					}
 				}
+			}
+			else
+			{
+				bestBruteColor = state->params->forceColors[palEntry];
 			}
 			palette[palEntry].SetRGB444(bestBruteColor);
 		}
@@ -369,30 +379,38 @@ void	BruteForceHam::BestHAMPaletteSearch(Color444* bitmap, int w, int h, Color44
 
 			if (pi > 0)	// do not search for background color ( supposed to be BLACK )
 			{
-				// create and start all threads
-				SplitRanges(states, gThreadsCount, 4096);
-				for (int i = 0; i < gThreadsCount; i++)
+				if (params.forceColors[pi] < 0)
 				{
-					memcpy(states[i].pal, palette, 16 * sizeof(Color444));
-					states[i].palSize = palSize;
-					states[i].solver = this;
-					states[i].currentPalIndex = pi;
-					hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainHAM, states + i, 0, NULL);
-				}
 
-				// wait for all threads to finish
-				WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
-
-				// now get the best result
-				ColorError_t best = kColorErrorMax;
-				for (int r = 0; r < gThreadsCount; r++)
-				{
-					if (states[r].bestError < best)
+					// create and start all threads
+					SplitRanges(states, gThreadsCount, 4096);
+					for (int i = 0; i < gThreadsCount; i++)
 					{
-						bestBruteColor = states[r].bestBruteColor;
-						best = states[r].bestError;
+						memcpy(states[i].pal, palette, 16 * sizeof(Color444));
+						states[i].palSize = palSize;
+						states[i].solver = this;
+						states[i].currentPalIndex = pi;
+						hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainHAM, states + i, 0, NULL);
 					}
-					CloseHandle(hThreads[r]);
+
+					// wait for all threads to finish
+					WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
+
+					// now get the best result
+					ColorError_t best = kColorErrorMax;
+					for (int r = 0; r < gThreadsCount; r++)
+					{
+						if (states[r].bestError < best)
+						{
+							bestBruteColor = states[r].bestBruteColor;
+							best = states[r].bestError;
+						}
+						CloseHandle(hThreads[r]);
+					}
+				}
+				else
+				{
+					bestBruteColor = params.forceColors[pi];
 				}
 				// set the best color in the palette
 				palette[pi].SetRGB444(bestBruteColor);
@@ -452,6 +470,7 @@ void	BruteForceHam::BestSHAMPaletteSearch(Color444* bitmap, int w, int h, Color4
 			{
 				states[i].mpp_palettes = palette;
 				states[i].solver = this;
+				states[i].params = &params;
 				hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainSHAM, states + i, 0, NULL);
 			}
 
@@ -498,23 +517,36 @@ void	BruteForceHam::BestMultiPaletteSearch(Color444* bitmap, int w, int h, AmigA
 
 			if (pi > 0)	// do not search for background color ( supposed to be BLACK )
 			{
-				// create and start all threads
-				SplitRanges(states, gThreadsCount, m_h);
-				for (int i = 0; i < gThreadsCount; i++)
+				if (params.forceColors[pi] < 0)
 				{
-					states[i].mpp_palettes = palettes;
-					states[i].mpp_strideShift = params.bitplanCount;
-					states[i].palSize = palSize;
-					states[i].solver = this;
-					states[i].currentPalIndex = pi;
-					hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainMpp, states + i, 0, NULL);
+
+					// create and start all threads
+					SplitRanges(states, gThreadsCount, m_h);
+					for (int i = 0; i < gThreadsCount; i++)
+					{
+						states[i].mpp_palettes = palettes;
+						states[i].mpp_strideShift = params.bitplanCount;
+						states[i].palSize = palSize;
+						states[i].solver = this;
+						states[i].currentPalIndex = pi;
+						hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainMpp, states + i, 0, NULL);
+					}
+
+					// wait for all threads to finish
+					WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
+
+					for (int r = 0; r < gThreadsCount; r++)
+						CloseHandle(hThreads[r]);
 				}
-
-				// wait for all threads to finish
-				WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
-
-				for (int r = 0; r < gThreadsCount; r++)
-					CloseHandle(hThreads[r]);
+				else
+				{
+					for (int line = 0; line < int(m_h); line++)
+					{
+						Color444* pal = palettes + (line << params.bitplanCount);
+						// store best color
+						pal[pi].SetRGB444(params.forceColors[pi]);
+					}
+				}
 			}
 		}
 	}

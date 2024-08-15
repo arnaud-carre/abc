@@ -42,6 +42,7 @@ public:
 		int rangeEnd;
 		ColorError_t bestError;
 		int bestBruteColor;
+		const ConvertParams* params = nullptr;
 	};
 
 private:
