@@ -1434,7 +1434,10 @@ int main(int argc, char*argv[])
 						if (bitmap.GetPalette())
 							ConvertToStandardIndexed(params, bitmap, out);
 						else
+						{
+							printf("Warning: input image is 24bits, convert to color indices...\n");
 							Convert24bToIndexed(params, bitmap, out);
+						}
 
 					}
 
