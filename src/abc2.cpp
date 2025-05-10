@@ -247,8 +247,7 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 	{
 		if (chunky && (bitplanCount > 4))
 		{
-			printf("ERROR: -chunky mode only support 4 bitplans max\n");
-			ret = false;
+			printf("WARNING: -chunky mode used with %d bitplans, switch to one byte per pixel\n", bitplanCount);
 		}
 
 		if ((rgb) || (AnyHam()))
@@ -861,14 +860,27 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 				{
 					if (params.chunky)
 					{
-						for (int y = 0; y < params.sprH; y++)
+						if (params.bitplanCount <= 4)
 						{
-							const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
-							for (int x = 0; x < params.sprW; x += 2)
+							// up to 4 bitplans, store two pixels per byte in chunky mode
+							for (int y = 0; y < params.sprH; y++)
 							{
-								u8 val = (pixels[0] << 4) | (pixels[1]);
-								fputc(val, hf);
-								pixels += 2;
+								const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+								for (int x = 0; x < params.sprW; x += 2)
+								{
+									u8 val = (pixels[0] << 4) | (pixels[1]);
+									fputc(val, hf);
+									pixels += 2;
+								}
+							}
+						}
+						else
+						{
+							// more than 4 bitplans, store 1 pixel per byte
+							for (int y = 0; y < params.sprH; y++)
+							{
+								const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+								fwrite(pixels, 1, params.sprW, hf);
 							}
 						}
 					}
@@ -1291,7 +1303,7 @@ int	AmigAtariBitmap::GetPixelId(int x, int y) const
 
 int main(int argc, char*argv[])
 {
-	printf("AmigAtari Bitmap Converter v2.03 by Leonard/Oxygene\n"
+	printf("AmigAtari Bitmap Converter v2.04 by Leonard/Oxygene\n"
 	       "(GPU Enhanced version)\n\n");
 
 	ConvertParams params;

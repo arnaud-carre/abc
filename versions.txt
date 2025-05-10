@@ -1,3 +1,6 @@
+v2.04
+	- chunky mode supports 5 bitplans (1 pixel per byte)
+
 v2.03
 	- added -forcecolor support for all quantized modes.
 
