@@ -110,8 +110,8 @@ bool TileSet::Create(const AmigAtariBitmap& img, int tileSizeX, int tileSizeY)
 
 void TileSet::saveTilemap(const char* fname)
 {
-	FILE* hf;
-	if (0 == fopen_s(&hf, fname, "wb"))
+	FILE* hf = fopen(fname, "wb");
+	if (hf)
 	{
 		for (int i=0;i<m_mapW*m_mapH;i++)
 		{
@@ -125,8 +125,8 @@ void TileSet::saveTilemap(const char* fname)
 
 void TileSet::saveTileset(const char* fname, int bitplanCount, bool atari)
 {
-	FILE* hf;
-	if (0 == fopen_s(&hf, fname, "wb"))
+	FILE* hf = fopen(fname, "wb");
+	if (hf)
 	{
 		const uint8_t* pixels = m_tileSet;
 		for (int t=0;t<m_tileSetCount;t++)

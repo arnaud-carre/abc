@@ -108,6 +108,20 @@ Blog post 2: [how the GPU is used to speed up the brute force search](https://ar
 
 abc has been used in *many* Atari and Amiga demos (and one game :) )
 
+## Building on macOS and Linux
+
+There is now a simple `Makefile` for POSIX builds:
+
+````
+make
+````
+
+This produces a local `./abc2` binary.
+
+Notes:
+- On macOS and Linux the build is CPU-only. The DirectX 11 GPU brute-force path remains Windows-only.
+- That means `-quantize`, `-ham`, `-sham`, `-sham5b` and `-mpp` still work, but they use the existing CPU implementation on non-Windows platforms.
+
 [<img src="https://content.pouet.net/files/screenshots/00096/00096577.jpg">](https://www.pouet.net/prod.php?which=96577)
 
 [<img src="https://content.pouet.net/files/screenshots/00094/00094129.jpg">](https://www.pouet.net/prod.php?which=94129)
@@ -119,4 +133,3 @@ abc has been used in *many* Atari and Amiga demos (and one game :) )
 [<img src="https://content.pouet.net/files/screenshots/00091/00091996.png">](https://www.pouet.net/prod.php?which=91996)
 
 [<img src="https://content.pouet.net/files/screenshots/00081/00081081.jpg">](https://www.pouet.net/prod.php?which=81081)
-
