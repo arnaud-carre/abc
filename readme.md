@@ -119,8 +119,28 @@ make
 This produces a local `./abc2` binary.
 
 Notes:
-- On macOS and Linux the build is CPU-only. The DirectX 11 GPU brute-force path remains Windows-only.
-- That means `-quantize`, `-ham`, `-sham`, `-sham5b` and `-mpp` still work, but they use the existing CPU implementation on non-Windows platforms.
+- On macOS, GPU brute-force palette search uses Metal.
+- On Linux, the build currently falls back to the CPU implementation because there is no Linux GPU backend yet.
+- The Windows build keeps the existing DirectX 11 GPU backend.
+
+### macOS Metal toolchain setup
+
+On a fresh macOS/Xcode install, the runtime Metal backend may need the Metal toolchain component to be installed before it can compile shaders correctly.
+
+If `xcrun -sdk macosx metal --version` reports a missing Metal toolchain, run:
+
+````
+sudo xcodebuild -runFirstLaunch
+xcodebuild -downloadComponent MetalToolchain
+````
+
+Then verify the compiler is available:
+
+````
+xcrun -sdk macosx metal --version
+````
+
+After that, rebuild `abc2` with `make` and run it directly from `Terminal.app` on your Mac.
 
 [<img src="https://content.pouet.net/files/screenshots/00096/00096577.jpg">](https://www.pouet.net/prod.php?which=96577)
 

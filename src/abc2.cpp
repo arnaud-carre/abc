@@ -22,7 +22,7 @@ ConvertParams::ConvertParams()
 	atari = false;
 	ste = false;
 	bitplanCount = -1;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
 	gpu = true;
 #else
 	gpu = false;
