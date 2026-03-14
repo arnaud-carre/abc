@@ -15,10 +15,10 @@ public:
 	MetalManager();
 	~MetalManager() override;
 
-	bool bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes) override;
-	bool bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc) override;
-	bool bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes) override;
-	bool bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc) override;
+	bool bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors) override;
+	bool bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors) override;
+	bool bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors) override;
+	bool bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors) override;
 
 private:
 	struct Impl;

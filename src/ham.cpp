@@ -383,7 +383,7 @@ void	BruteForceHam::BestHAMPaletteSearch(Color444* bitmap, int w, int h, Color44
 		"  Brute force single palette search for HAM mode, GPU mode...",
 		[&](ComputeManager& computeManager)
 		{
-			return computeManager.bestHAMPaletteCompute(bitmap, w, h, palette);
+			return computeManager.bestHAMPaletteCompute(bitmap, w, h, palette, params.forceColors);
 		});
 
 	if (!usedGpu)
@@ -476,7 +476,7 @@ void	BruteForceHam::BestSHAMPaletteSearch(Color444* bitmap, int w, int h, Color4
 		"  Brute force palette search for S-HAM mode, GPU mode...",
 		[&](ComputeManager& computeManager)
 		{
-			return computeManager.bestSHAMPaletteCompute(bitmap, w, h, palette);
+			return computeManager.bestSHAMPaletteCompute(bitmap, w, h, palette, params.forceColors);
 		});
 
 	if (!usedGpu)
@@ -517,7 +517,7 @@ void	BruteForceHam::BestMultiPaletteSearch(Color444* bitmap, int w, int h, AmigA
 		"  Running GPU Compute shader MPP (Multi-Palette) Brute-Force search...",
 		[&](ComputeManager& computeManager)
 		{
-			return computeManager.bestMppPaletteCompute(bitmap, w, h, palettes, params.bitplanCount);
+			return computeManager.bestMppPaletteCompute(bitmap, w, h, palettes, params.bitplanCount, params.forceColors);
 		});
 
 	if (!usedGpu)
@@ -607,7 +607,7 @@ void	BruteForceHam::BestPaletteSearch(Color444* bitmap, int w, int h, AmigAtariB
 		gpuMessage,
 		[&](ComputeManager& computeManager)
 		{
-			return computeManager.bestSinglePaletteCompute(bitmap, w, h, palette, params.bitplanCount);
+			return computeManager.bestSinglePaletteCompute(bitmap, w, h, palette, params.bitplanCount, params.forceColors);
 		});
 
 	if (!usedGpu)

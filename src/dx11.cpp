@@ -25,6 +25,33 @@ struct int4
 	int x, y, z, w;
 };
 
+static void ApplyForcedColorsSingle(Color444* outPalettes, int colorCount, const int* forceColors)
+{
+	if (!forceColors)
+		return;
+
+	for (int palEntry = 1; palEntry < colorCount; palEntry++)
+	{
+		if (forceColors[palEntry] >= 0)
+			outPalettes[palEntry].SetRGB444(forceColors[palEntry]);
+	}
+}
+
+static void ApplyForcedColorsMulti(Color444* outPalettes, int h, int colorCount, const int* forceColors)
+{
+	if (!forceColors)
+		return;
+
+	for (int palEntry = 1; palEntry < colorCount; palEntry++)
+	{
+		if (forceColors[palEntry] < 0)
+			continue;
+
+		for (int line = 0; line < h; line++)
+			outPalettes[line * colorCount + palEntry].SetRGB444(forceColors[palEntry]);
+	}
+}
+
 Dx11Buffer::Dx11Buffer()
 {
 	m_dxBuffer = NULL;
@@ -272,7 +299,7 @@ bool	Dx11Manager::CreateDevice()
 	return bRet;
 }
 
-bool Dx11Manager::bestMultiPaletteSearch(const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool ham)
+bool Dx11Manager::bestMultiPaletteSearch(const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool ham, const int* forceColors)
 {
 	bool bRet = false;
 
@@ -282,6 +309,7 @@ bool Dx11Manager::bestMultiPaletteSearch(const Color444* image, int w, int h, Co
 		assert(bpc <= 5);
 		const int colorCount = 1 << bpc;
 		int palSize = h * colorCount * sizeof(Color444);
+		ApplyForcedColorsMulti(outPalettes, h, colorCount, forceColors);
 
 		Dx11Buffer palBuffer;
 		if (palBuffer.CreateUAVBuffer(m_pd3dDevice, palSize, outPalettes))
@@ -296,6 +324,9 @@ bool Dx11Manager::bestMultiPaletteSearch(const Color444* image, int w, int h, Co
 					// Each palette entry will brute-force search among 4096 colors
 					for (int palEntry = 1; palEntry < colorCount; palEntry++)
 					{
+						if (forceColors && (forceColors[palEntry] >= 0))
+							continue;
+
 						int processInfo[4] = { w, h, palEntry, bpc };
 
 						m_pImmediateContext->CSSetShader(ham? m_pShamKernel: m_pMppKernel, NULL, 0);
@@ -336,7 +367,7 @@ bool Dx11Manager::bestMultiPaletteSearch(const Color444* image, int w, int h, Co
 	return bRet;
 }
 
-bool	Dx11Manager::bestSinglePaletteSearch(const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool ham)
+bool	Dx11Manager::bestSinglePaletteSearch(const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool ham, const int* forceColors)
 {
 
 	bool bRet = false;
@@ -347,6 +378,7 @@ bool	Dx11Manager::bestSinglePaletteSearch(const Color444* image, int w, int h, C
 		assert(bpc <= 5);
 		const int colorCount = 1 << bpc;
 		int palSize = colorCount * sizeof(Color444);
+		ApplyForcedColorsSingle(outPalettes, colorCount, forceColors);
 
 		const int imageSize = w * h * sizeof(Color444);
 		Dx11Buffer imageBuffer;
@@ -361,6 +393,9 @@ bool	Dx11Manager::bestSinglePaletteSearch(const Color444* image, int w, int h, C
 				// Each palette entry will brute-force search among 4096 colors
 				for (int palEntry = 1; palEntry < colorCount; palEntry++)
 				{
+					if (forceColors && (forceColors[palEntry] >= 0))
+						continue;
+
 					processInfo[0].x = w;
 					processInfo[0].y = h;
 					processInfo[0].z = palEntry;
@@ -420,24 +455,24 @@ bool	Dx11Manager::bestSinglePaletteSearch(const Color444* image, int w, int h, C
 }
 
 
-bool	Dx11Manager::bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes)
+bool	Dx11Manager::bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors)
 {
-	return bestSinglePaletteSearch(image, w, h, outPalettes, 4, true);
+	return bestSinglePaletteSearch(image, w, h, outPalettes, 4, true, forceColors);
 }
 
-bool Dx11Manager::bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool Dx11Manager::bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
 	assert(bpc <= 5);
-	return bestSinglePaletteSearch(image, w, h, outPalettes, bpc, false);
+	return bestSinglePaletteSearch(image, w, h, outPalettes, bpc, false, forceColors);
 }
 
-bool	Dx11Manager::bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes)
+bool	Dx11Manager::bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors)
 {
-	return bestMultiPaletteSearch(image, w, h, outPalettes, 4, true);
+	return bestMultiPaletteSearch(image, w, h, outPalettes, 4, true, forceColors);
 }
 
-bool Dx11Manager::bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool Dx11Manager::bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
 	assert(bpc <= 5);
-	return bestMultiPaletteSearch(image, w, h, outPalettes, bpc, false);
+	return bestMultiPaletteSearch(image, w, h, outPalettes, bpc, false, forceColors);
 }

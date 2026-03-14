@@ -53,6 +53,33 @@ struct Buffer
 	bool coherent = false;
 };
 
+static void ApplyForcedColorsSingle(Color444* outPalettes, int colorCount, const int* forceColors)
+{
+	if (!forceColors)
+		return;
+
+	for (int palEntry = 1; palEntry < colorCount; ++palEntry)
+	{
+		if (forceColors[palEntry] >= 0)
+			outPalettes[palEntry].SetRGB444(forceColors[palEntry]);
+	}
+}
+
+static void ApplyForcedColorsMulti(Color444* outPalettes, int h, int colorCount, const int* forceColors)
+{
+	if (!forceColors)
+		return;
+
+	for (int palEntry = 1; palEntry < colorCount; ++palEntry)
+	{
+		if (forceColors[palEntry] < 0)
+			continue;
+
+		for (int line = 0; line < h; ++line)
+			outPalettes[line * colorCount + palEntry].SetRGB444(forceColors[palEntry]);
+	}
+}
+
 static std::vector<uint32_t> CopySpirv(const unsigned char* bytes, unsigned int sizeInBytes)
 {
 	assert((sizeInBytes & 3u) == 0u);
@@ -93,8 +120,8 @@ struct VulkanManager::Impl
 	~Impl();
 
 	bool initialize();
-	bool bestSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc);
-	bool bestMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout);
+	bool bestSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors);
+	bool bestMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout, const int* forceColors);
 
 private:
 	bool createInstance();
@@ -675,13 +702,15 @@ VkPipeline VulkanManager::Impl::pipeline(Kernel kernel) const
 	return VK_NULL_HANDLE;
 }
 
-bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
 	if (!initialize())
 		return false;
 
 	assert(4 == sizeof(Color444));
 	assert(bpc <= 5);
+	const int colorCount = 1 << bpc;
+	ApplyForcedColorsSingle(outPalettes, colorCount, forceColors);
 
 	Buffer imageBuffer;
 	Buffer errorBuffer;
@@ -703,11 +732,13 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 	if (ok && !updateDescriptorSet(imageBuffer, errorBuffer, processBuffer))
 		ok = false;
 
-	const int colorCount = 1 << bpc;
 	std::array<uint32_t, kBruteForceColorCount> errors = {};
 
 	for (int palEntry = 1; ok && (palEntry < colorCount); ++palEntry)
 	{
+		if (forceColors && (forceColors[palEntry] >= 0))
+			continue;
+
 		memset(errorBuffer.mapped, 0, errors.size() * sizeof(uint32_t));
 		ok = flushBuffer(errorBuffer);
 
@@ -775,7 +806,7 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 	return ok;
 }
 
-bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout)
+bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout, const int* forceColors)
 {
 	if (!initialize())
 		return false;
@@ -784,6 +815,7 @@ bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w,
 	assert(bpc <= 5);
 
 	const int colorCount = 1 << bpc;
+	ApplyForcedColorsMulti(outPalettes, h, colorCount, forceColors);
 	const size_t imageSize = size_t(w) * size_t(h) * sizeof(Color444);
 	const size_t paletteSize = size_t(h) * size_t(colorCount) * sizeof(Color444);
 
@@ -810,6 +842,9 @@ bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w,
 
 	for (int palEntry = 1; ok && (palEntry < colorCount); ++palEntry)
 	{
+		if (forceColors && (forceColors[palEntry] >= 0))
+			continue;
+
 		MultiProcessInfo info = {};
 		info.w = uint32_t(w);
 		info.h = uint32_t(h);
@@ -866,22 +901,22 @@ VulkanManager::VulkanManager()
 
 VulkanManager::~VulkanManager() = default;
 
-bool VulkanManager::bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes)
+bool VulkanManager::bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors)
 {
-	return m_impl->bestMulti(Impl::Kernel::Sham, image, w, h, outPalettes, 4, true);
+	return m_impl->bestMulti(Impl::Kernel::Sham, image, w, h, outPalettes, 4, true, forceColors);
 }
 
-bool VulkanManager::bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool VulkanManager::bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
-	return m_impl->bestMulti(Impl::Kernel::Mpp, image, w, h, outPalettes, bpc, false);
+	return m_impl->bestMulti(Impl::Kernel::Mpp, image, w, h, outPalettes, bpc, false, forceColors);
 }
 
-bool VulkanManager::bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes)
+bool VulkanManager::bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors)
 {
-	return m_impl->bestSingle(Impl::Kernel::Ham, image, w, h, outPalettes, 4);
+	return m_impl->bestSingle(Impl::Kernel::Ham, image, w, h, outPalettes, 4, forceColors);
 }
 
-bool VulkanManager::bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool VulkanManager::bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
-	return m_impl->bestSingle(Impl::Kernel::SinglePal, image, w, h, outPalettes, bpc);
+	return m_impl->bestSingle(Impl::Kernel::SinglePal, image, w, h, outPalettes, bpc, forceColors);
 }

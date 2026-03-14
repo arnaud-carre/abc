@@ -240,12 +240,6 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 			printf("ERROR: -forcecolor should always be used with -quantize or any HAM mode\n");
 			ret = false;
 		}
-		if (gpu)
-		{
-			printf("Warning: -forcecolor option enable, GPU code path is switched OFF in this version\n");
-			gpu = false;
-		}
-		
 	}
 
 	if (bitplanCount > 0)

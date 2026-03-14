@@ -17,6 +17,33 @@ namespace
 constexpr NSUInteger kSingleThreadGroupSize = 64;
 constexpr NSUInteger kMultiThreadGroupSize = 128;
 
+static void ApplyForcedColorsSingle(Color444* outPalettes, int colorCount, const int* forceColors)
+{
+	if (!forceColors)
+		return;
+
+	for (int palEntry = 1; palEntry < colorCount; palEntry++)
+	{
+		if (forceColors[palEntry] >= 0)
+			outPalettes[palEntry].SetRGB444(forceColors[palEntry]);
+	}
+}
+
+static void ApplyForcedColorsMulti(Color444* outPalettes, int h, int colorCount, const int* forceColors)
+{
+	if (!forceColors)
+		return;
+
+	for (int palEntry = 1; palEntry < colorCount; palEntry++)
+	{
+		if (forceColors[palEntry] < 0)
+			continue;
+
+		for (int line = 0; line < h; line++)
+			outPalettes[line * colorCount + palEntry].SetRGB444(forceColors[palEntry]);
+	}
+}
+
 static const char* kMetalShaderSource = R"METAL(
 #include <metal_stdlib>
 using namespace metal;
@@ -366,8 +393,8 @@ struct MetalManager::Impl
 	bool buildPipeline(NSString* functionName, id<MTLComputePipelineState> __strong *pipeline);
 	id<MTLComputePipelineState> pipeline(Kernel kernel) const;
 	id<MTLBuffer> makeBuffer(NSUInteger size, const void* data);
-	bool runSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc);
-	bool runMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout);
+	bool runSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors);
+	bool runMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout, const int* forceColors);
 };
 
 bool MetalManager::Impl::buildPipeline(NSString* functionName, id<MTLComputePipelineState> __strong *pipeline)
@@ -456,7 +483,7 @@ id<MTLComputePipelineState> MetalManager::Impl::pipeline(Kernel kernel) const
 	return nil;
 }
 
-bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
 	if (!initialize())
 		return false;
@@ -470,6 +497,7 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 
 	assert(4 == sizeof(Color444));
 	const int colorCount = 1 << bpc;
+	ApplyForcedColorsSingle(outPalettes, colorCount, forceColors);
 	const NSUInteger imageSize = NSUInteger(w) * NSUInteger(h) * sizeof(Color444);
 	id<MTLBuffer> imageBuffer = makeBuffer(imageSize, image);
 	id<MTLBuffer> errorBuffer = makeBuffer(4096 * sizeof(uint32_t), nullptr);
@@ -482,6 +510,9 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 
 	for (int palEntry = 1; palEntry < colorCount; palEntry++)
 	{
+		if (forceColors && (forceColors[palEntry] >= 0))
+			continue;
+
 		memset([errorBuffer contents], 0, 4096 * sizeof(uint32_t));
 
 		SingleProcessInfo info = {};
@@ -527,7 +558,7 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 	return true;
 }
 
-bool MetalManager::Impl::runMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout)
+bool MetalManager::Impl::runMulti(Kernel kernel, const Color444* image, int w, int h, Color444* outPalettes, int bpc, bool hamLayout, const int* forceColors)
 {
 	if (!initialize())
 		return false;
@@ -541,6 +572,7 @@ bool MetalManager::Impl::runMulti(Kernel kernel, const Color444* image, int w, i
 
 	assert(4 == sizeof(Color444));
 	const int colorCount = 1 << bpc;
+	ApplyForcedColorsMulti(outPalettes, h, colorCount, forceColors);
 	const NSUInteger imageSize = NSUInteger(w) * NSUInteger(h) * sizeof(Color444);
 	const NSUInteger paletteSize = NSUInteger(h) * NSUInteger(colorCount) * sizeof(Color444);
 
@@ -555,6 +587,9 @@ bool MetalManager::Impl::runMulti(Kernel kernel, const Color444* image, int w, i
 
 	for (int palEntry = 1; palEntry < colorCount; palEntry++)
 	{
+		if (forceColors && (forceColors[palEntry] >= 0))
+			continue;
+
 		MultiProcessInfo info = {};
 		info.w = uint32_t(w);
 		info.h = uint32_t(h);
@@ -592,22 +627,22 @@ MetalManager::MetalManager()
 
 MetalManager::~MetalManager() = default;
 
-bool MetalManager::bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes)
+bool MetalManager::bestSHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors)
 {
-	return m_impl->runMulti(Impl::Kernel::Sham, image, w, h, outPalettes, 4, true);
+	return m_impl->runMulti(Impl::Kernel::Sham, image, w, h, outPalettes, 4, true, forceColors);
 }
 
-bool MetalManager::bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool MetalManager::bestMppPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
-	return m_impl->runMulti(Impl::Kernel::Mpp, image, w, h, outPalettes, bpc, false);
+	return m_impl->runMulti(Impl::Kernel::Mpp, image, w, h, outPalettes, bpc, false, forceColors);
 }
 
-bool MetalManager::bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes)
+bool MetalManager::bestHAMPaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, const int* forceColors)
 {
-	return m_impl->runSingle(Impl::Kernel::Ham, image, w, h, outPalettes, 4);
+	return m_impl->runSingle(Impl::Kernel::Ham, image, w, h, outPalettes, 4, forceColors);
 }
 
-bool MetalManager::bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc)
+bool MetalManager::bestSinglePaletteCompute(const Color444* image, int w, int h, Color444* outPalettes, int bpc, const int* forceColors)
 {
-	return m_impl->runSingle(Impl::Kernel::SinglePal, image, w, h, outPalettes, bpc);
+	return m_impl->runSingle(Impl::Kernel::SinglePal, image, w, h, outPalettes, bpc, forceColors);
 }
