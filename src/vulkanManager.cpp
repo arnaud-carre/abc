@@ -26,6 +26,7 @@ namespace
 constexpr uint32_t kBruteForceColorCount = 4096;
 constexpr uint32_t kSingleThreadGroupSize = 64;
 constexpr uint32_t kMultiThreadGroupSize = 128;
+constexpr uint32_t kSingleGroupCount = kBruteForceColorCount / kSingleThreadGroupSize;
 
 static VkDeviceSize AlignUp(VkDeviceSize value, VkDeviceSize alignment)
 {
@@ -58,6 +59,12 @@ struct Buffer
 	VkDeviceSize size = 0;
 	void* mapped = nullptr;
 	bool coherent = false;
+};
+
+struct GroupResult
+{
+	uint32_t error;
+	uint32_t color;
 };
 
 static void ApplyForcedColorsSingle(Color444* outPalettes, int colorCount, const int* forceColors)
@@ -727,35 +734,32 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 	ApplyForcedColorsSingle(outPalettes, colorCount, forceColors);
 
 	Buffer imageBuffer;
-	Buffer errorBuffer;
+	Buffer resultBuffer;
 	Buffer processBuffer;
 	const VkDeviceSize processStride = processInfoStride(sizeof(SingleProcessInfo));
 	const size_t imageSize = size_t(w) * size_t(h) * sizeof(Color444);
 	bool ok = createBuffer(imageSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &imageBuffer)
-		&& createBuffer(kBruteForceColorCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &errorBuffer)
+		&& createBuffer(kSingleGroupCount * sizeof(GroupResult), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &resultBuffer)
 		&& createBuffer(processStride, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &processBuffer);
 	if (!ok)
 	{
 		destroyBuffer(&processBuffer);
-		destroyBuffer(&errorBuffer);
+		destroyBuffer(&resultBuffer);
 		destroyBuffer(&imageBuffer);
 		return false;
 	}
 
 	if (!writeBuffer(imageBuffer, image, imageSize))
 		ok = false;
-	if (ok && !updateDescriptorSet(imageBuffer, errorBuffer, processBuffer))
+	if (ok && !updateDescriptorSet(imageBuffer, resultBuffer, processBuffer))
 		ok = false;
 
-	std::array<uint32_t, kBruteForceColorCount> errors = {};
+	std::array<GroupResult, kSingleGroupCount> results = {};
 
 	for (int palEntry = 1; ok && (palEntry < colorCount); ++palEntry)
 	{
 		if (forceColors && (forceColors[palEntry] >= 0))
 			continue;
-
-		memset(errorBuffer.mapped, 0, errors.size() * sizeof(uint32_t));
-		ok = flushBuffer(errorBuffer);
 
 		SingleProcessInfo info = {};
 		info.w = uint32_t(w);
@@ -774,7 +778,7 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline(kernel));
 			const uint32_t processOffset = 0;
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 1, &processOffset);
-			vkCmdDispatch(commandBuffer, uint32_t(h), kBruteForceColorCount / kSingleThreadGroupSize, 1);
+			vkCmdDispatch(commandBuffer, kSingleGroupCount, 1, 1);
 
 			VkBufferMemoryBarrier barrier = {};
 			barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -782,9 +786,9 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 			barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.buffer = errorBuffer.buffer;
+			barrier.buffer = resultBuffer.buffer;
 			barrier.offset = 0;
-			barrier.size = errorBuffer.size;
+			barrier.size = resultBuffer.size;
 			vkCmdPipelineBarrier(
 				commandBuffer,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -797,19 +801,19 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 
 		if (ok && !submitAndWait())
 			ok = false;
-		if (ok && !readBuffer(errorBuffer, errors.data(), errors.size() * sizeof(uint32_t)))
+		if (ok && !readBuffer(resultBuffer, results.data(), results.size() * sizeof(GroupResult)))
 			ok = false;
 
 		if (ok)
 		{
 			uint32_t bestError = ~0u;
 			int bestColor = 0;
-			for (int i = 0; i < int(errors.size()); ++i)
+			for (const GroupResult& result : results)
 			{
-				if (errors[size_t(i)] < bestError)
+				if ((result.error < bestError) || ((result.error == bestError) && (result.color < uint32_t(bestColor))))
 				{
-					bestError = errors[size_t(i)];
-					bestColor = i;
+					bestError = result.error;
+					bestColor = int(result.color);
 				}
 			}
 			outPalettes[palEntry].SetRGB444(bestColor);
@@ -817,7 +821,7 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 	}
 
 	destroyBuffer(&processBuffer);
-	destroyBuffer(&errorBuffer);
+	destroyBuffer(&resultBuffer);
 	destroyBuffer(&imageBuffer);
 	return ok;
 }

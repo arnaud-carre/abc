@@ -7,9 +7,9 @@ layout(std430, binding = 0) readonly buffer ImageBuffer
 	uint inImage[];
 };
 
-layout(std430, binding = 1) buffer ErrorBuffer
+layout(std430, binding = 1) buffer ResultBuffer
 {
-	uint inOutErrors[];
+	uvec2 outResults[];
 };
 
 layout(std430, binding = 2) readonly buffer ProcessInfoBuffer
@@ -71,17 +71,44 @@ uint GetBestColor(uint original, uint currentBruteforceColor)
 	return err >> 17;
 }
 
+bool IsBetter(uint err, uint color, uint bestErr, uint bestColor)
+{
+	return (err < bestErr) || ((err == bestErr) && (color < bestColor));
+}
+
+shared uint sharedErrors[64];
+shared uint sharedColors[64];
+
 void main()
 {
-	uint bruteColor = gl_WorkGroupID.y * 64u + gl_LocalInvocationID.x;
-	uint scanline = gl_WorkGroupID.x;
+	uint bruteColor = gl_WorkGroupID.x * 64u + gl_LocalInvocationID.x;
 
 	uint err = 0u;
-	uint readImgAd = scanline * m_w;
-	for (uint x = 0u; x < m_w; ++x)
+	for (uint scanline = 0u; scanline < m_h; ++scanline)
 	{
-		err += GetBestColor(inImage[readImgAd++], bruteColor);
+		uint readImgAd = scanline * m_w;
+		for (uint x = 0u; x < m_w; ++x)
+		{
+			err += GetBestColor(inImage[readImgAd++], bruteColor);
+		}
 	}
 
-	atomicAdd(inOutErrors[bruteColor], err);
+	sharedErrors[gl_LocalInvocationID.x] = err;
+	sharedColors[gl_LocalInvocationID.x] = bruteColor;
+	barrier();
+
+	for (uint stride = 32u; stride > 0u; stride >>= 1u)
+	{
+		if ((gl_LocalInvocationID.x < stride) &&
+			IsBetter(sharedErrors[gl_LocalInvocationID.x + stride], sharedColors[gl_LocalInvocationID.x + stride],
+				sharedErrors[gl_LocalInvocationID.x], sharedColors[gl_LocalInvocationID.x]))
+		{
+			sharedErrors[gl_LocalInvocationID.x] = sharedErrors[gl_LocalInvocationID.x + stride];
+			sharedColors[gl_LocalInvocationID.x] = sharedColors[gl_LocalInvocationID.x + stride];
+		}
+		barrier();
+	}
+
+	if (gl_LocalInvocationID.x == 0u)
+		outResults[gl_WorkGroupID.x] = uvec2(sharedErrors[0], sharedColors[0]);
 }

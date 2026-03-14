@@ -16,6 +16,8 @@ namespace
 {
 constexpr NSUInteger kSingleThreadGroupSize = 64;
 constexpr NSUInteger kMultiThreadGroupSize = 128;
+constexpr NSUInteger kSingleColorCount = 4096;
+constexpr NSUInteger kSingleGroupCount = 4096 / kSingleThreadGroupSize;
 
 static void ApplyForcedColorsSingle(Color444* outPalettes, int colorCount, const int* forceColors)
 {
@@ -50,6 +52,7 @@ using namespace metal;
 
 constant uint kSingleThreadGroupSize = 64;
 constant uint kMultiThreadGroupSize = 128;
+constant uint kSingleColorCount = 4096;
 constant uint kBruteForcePerThread = 4096 / kMultiThreadGroupSize;
 
 struct SingleProcessInfo
@@ -155,32 +158,30 @@ uint getBestHAMColor(uint original, uint previous, thread uint& errOut, uint cur
 }
 
 kernel void SinglePalKernel(const device uint* inImage [[buffer(0)]],
-							device atomic_uint* inOutErrors [[buffer(1)]],
+							device uint* outPartialErrors [[buffer(1)]],
 							constant SingleProcessInfo& processInfo [[buffer(2)]],
 							uint3 groupId [[threadgroup_position_in_grid]],
 							uint threadId [[thread_index_in_threadgroup]])
 {
-	uint bruteColor = groupId.y * kSingleThreadGroupSize + threadId;
 	uint scanline = groupId.x;
+	uint bruteColor = groupId.y * kSingleThreadGroupSize + threadId;
 
 	uint err = 0;
 	uint readImgAd = scanline * processInfo.w;
 	for (uint x = 0; x < processInfo.w; x++)
-	{
 		err += getBestColor(inImage[readImgAd++], bruteColor, processInfo);
-	}
 
-	atomic_fetch_add_explicit(&inOutErrors[bruteColor], err, memory_order_relaxed);
+	outPartialErrors[scanline * kSingleColorCount + bruteColor] = err;
 }
 
 kernel void HamKernel(const device uint* inImage [[buffer(0)]],
-					  device atomic_uint* inOutErrors [[buffer(1)]],
+					  device uint* outPartialErrors [[buffer(1)]],
 					  constant SingleProcessInfo& processInfo [[buffer(2)]],
 					  uint3 groupId [[threadgroup_position_in_grid]],
 					  uint threadId [[thread_index_in_threadgroup]])
 {
-	uint bruteColor = groupId.y * kSingleThreadGroupSize + threadId;
 	uint scanline = groupId.x;
+	uint bruteColor = groupId.y * kSingleThreadGroupSize + threadId;
 
 	uint prevColor = processInfo.inPalette[0];
 	uint err = 0;
@@ -192,7 +193,22 @@ kernel void HamKernel(const device uint* inImage [[buffer(0)]],
 		err += pixelErr;
 	}
 
-	atomic_fetch_add_explicit(&inOutErrors[bruteColor], err, memory_order_relaxed);
+	outPartialErrors[scanline * kSingleColorCount + bruteColor] = err;
+}
+
+kernel void SingleReduceKernel(const device uint* inPartialErrors [[buffer(0)]],
+							   device uint* outErrors [[buffer(1)]],
+							   constant SingleProcessInfo& processInfo [[buffer(2)]],
+							   uint groupId [[threadgroup_position_in_grid]],
+							   uint threadId [[thread_index_in_threadgroup]])
+{
+	uint bruteColor = groupId * kSingleThreadGroupSize + threadId;
+
+	uint err = 0;
+	for (uint scanline = 0; scanline < processInfo.h; scanline++)
+		err += inPartialErrors[scanline * kSingleColorCount + bruteColor];
+
+	outErrors[bruteColor] = err;
 }
 
 uint getBestMPPColor(uint original, uint scanline, uint currentBruteforceColor, const device uint* inOutPalettes, constant MultiProcessInfo& processInfo)
@@ -380,6 +396,7 @@ struct MetalManager::Impl
 	id<MTLComputePipelineState> shamPipeline = nil;
 	id<MTLComputePipelineState> mppPipeline = nil;
 	id<MTLComputePipelineState> singlePalPipeline = nil;
+	id<MTLComputePipelineState> singleReducePipeline = nil;
 
 	enum class Kernel
 	{
@@ -454,7 +471,8 @@ bool MetalManager::Impl::initialize()
 	return buildPipeline(@"HamKernel", &hamPipeline)
 		&& buildPipeline(@"ShamKernel", &shamPipeline)
 		&& buildPipeline(@"MppKernel", &mppPipeline)
-		&& buildPipeline(@"SinglePalKernel", &singlePalPipeline);
+		&& buildPipeline(@"SinglePalKernel", &singlePalPipeline)
+		&& buildPipeline(@"SingleReduceKernel", &singleReducePipeline);
 }
 
 id<MTLBuffer> MetalManager::Impl::makeBuffer(NSUInteger size, const void* data)
@@ -500,9 +518,10 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 	ApplyForcedColorsSingle(outPalettes, colorCount, forceColors);
 	const NSUInteger imageSize = NSUInteger(w) * NSUInteger(h) * sizeof(Color444);
 	id<MTLBuffer> imageBuffer = makeBuffer(imageSize, image);
-	id<MTLBuffer> errorBuffer = makeBuffer(4096 * sizeof(uint32_t), nullptr);
+	id<MTLBuffer> partialBuffer = makeBuffer(NSUInteger(h) * kSingleColorCount * sizeof(uint32_t), nullptr);
+	id<MTLBuffer> errorBuffer = makeBuffer(kSingleColorCount * sizeof(uint32_t), nullptr);
 	id<MTLBuffer> constantBuffer = makeBuffer(sizeof(SingleProcessInfo), nullptr);
-	if (!imageBuffer || !errorBuffer || !constantBuffer)
+	if (!imageBuffer || !partialBuffer || !errorBuffer || !constantBuffer)
 	{
 		printf("ERROR: Unable to allocate Metal buffers\n");
 		return false;
@@ -512,8 +531,6 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 	{
 		if (forceColors && (forceColors[palEntry] >= 0))
 			continue;
-
-		memset([errorBuffer contents], 0, 4096 * sizeof(uint32_t));
 
 		SingleProcessInfo info = {};
 		info.w = uint32_t(w);
@@ -527,9 +544,18 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 		id<MTLComputeCommandEncoder> encoder = [commandBuffer computeCommandEncoder];
 		[encoder setComputePipelineState:selectedPipeline];
 		[encoder setBuffer:imageBuffer offset:0 atIndex:0];
+		[encoder setBuffer:partialBuffer offset:0 atIndex:1];
+		[encoder setBuffer:constantBuffer offset:0 atIndex:2];
+		[encoder dispatchThreadgroups:MTLSizeMake(NSUInteger(h), kSingleGroupCount, 1)
+				  threadsPerThreadgroup:MTLSizeMake(kSingleThreadGroupSize, 1, 1)];
+		[encoder endEncoding];
+
+		encoder = [commandBuffer computeCommandEncoder];
+		[encoder setComputePipelineState:singleReducePipeline];
+		[encoder setBuffer:partialBuffer offset:0 atIndex:0];
 		[encoder setBuffer:errorBuffer offset:0 atIndex:1];
 		[encoder setBuffer:constantBuffer offset:0 atIndex:2];
-		[encoder dispatchThreadgroups:MTLSizeMake(NSUInteger(h), 4096 / kSingleThreadGroupSize, 1)
+		[encoder dispatchThreadgroups:MTLSizeMake(kSingleGroupCount, 1, 1)
 				  threadsPerThreadgroup:MTLSizeMake(kSingleThreadGroupSize, 1, 1)];
 		[encoder endEncoding];
 		[commandBuffer commit];
@@ -541,15 +567,15 @@ bool MetalManager::Impl::runSingle(Kernel kernel, const Color444* image, int w, 
 			return false;
 		}
 
-		const uint32_t* errors = (const uint32_t*)[errorBuffer contents];
+		const uint32_t* results = (const uint32_t*)[errorBuffer contents];
 		uint32_t bestError = ~0u;
 		int bestColor = 0;
-		for (int i = 0; i < 4096; i++)
+		for (NSUInteger i = 0; i < kSingleColorCount; i++)
 		{
-			if (errors[i] < bestError)
+			if ((results[i] < bestError) || ((results[i] == bestError) && (i < NSUInteger(bestColor))))
 			{
-				bestError = errors[i];
-				bestColor = i;
+				bestError = results[i];
+				bestColor = int(i);
 			}
 		}
 		outPalettes[palEntry].SetRGB444(bestColor);
