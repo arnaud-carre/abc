@@ -585,6 +585,13 @@ bool MetalManager::Impl::runMulti(Kernel kernel, const Color444* image, int w, i
 		return false;
 	}
 
+	id<MTLCommandBuffer> commandBuffer = [queue commandBuffer];
+	if (!commandBuffer)
+	{
+		printf("ERROR: Unable to create Metal command buffer for multi palette mode\n");
+		return false;
+	}
+
 	for (int palEntry = 1; palEntry < colorCount; palEntry++)
 	{
 		if (forceColors && (forceColors[palEntry] >= 0))
@@ -597,23 +604,23 @@ bool MetalManager::Impl::runMulti(Kernel kernel, const Color444* image, int w, i
 		info.palStride = hamLayout ? 4u : uint32_t(bpc);
 		memcpy([constantBuffer contents], &info, sizeof(info));
 
-		id<MTLCommandBuffer> commandBuffer = [queue commandBuffer];
 		id<MTLComputeCommandEncoder> encoder = [commandBuffer computeCommandEncoder];
 		[encoder setComputePipelineState:selectedPipeline];
 		[encoder setBuffer:imageBuffer offset:0 atIndex:0];
 		[encoder setBuffer:paletteBuffer offset:0 atIndex:1];
-		[encoder setBuffer:constantBuffer offset:0 atIndex:2];
-		[encoder dispatchThreadgroups:MTLSizeMake(NSUInteger(h), 1, 1)
-				  threadsPerThreadgroup:MTLSizeMake(kMultiThreadGroupSize, 1, 1)];
-		[encoder endEncoding];
-		[commandBuffer commit];
-		[commandBuffer waitUntilCompleted];
-
-		if ([commandBuffer status] != MTLCommandBufferStatusCompleted)
-		{
-			printf("ERROR: Metal compute command failed in multi palette mode\n");
-			return false;
+			[encoder setBuffer:constantBuffer offset:0 atIndex:2];
+			[encoder dispatchThreadgroups:MTLSizeMake(NSUInteger(h), 1, 1)
+					  threadsPerThreadgroup:MTLSizeMake(kMultiThreadGroupSize, 1, 1)];
+			[encoder endEncoding];
 		}
+
+	[commandBuffer commit];
+	[commandBuffer waitUntilCompleted];
+
+	if ([commandBuffer status] != MTLCommandBufferStatusCompleted)
+	{
+		printf("ERROR: Metal compute command failed in multi palette mode\n");
+		return false;
 	}
 
 	memcpy(outPalettes, [paletteBuffer contents], paletteSize);

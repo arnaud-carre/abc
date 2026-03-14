@@ -27,6 +27,13 @@ constexpr uint32_t kBruteForceColorCount = 4096;
 constexpr uint32_t kSingleThreadGroupSize = 64;
 constexpr uint32_t kMultiThreadGroupSize = 128;
 
+static VkDeviceSize AlignUp(VkDeviceSize value, VkDeviceSize alignment)
+{
+	if (alignment <= 1)
+		return value;
+	return (value + alignment - 1) & ~(alignment - 1);
+}
+
 struct SingleProcessInfo
 {
 	uint32_t w;
@@ -144,6 +151,7 @@ private:
 	bool beginCommands();
 	bool submitAndWait();
 	VkPipeline pipeline(Kernel kernel) const;
+	VkDeviceSize processInfoStride(VkDeviceSize size) const;
 	void destroy();
 };
 
@@ -330,7 +338,7 @@ bool VulkanManager::Impl::createDescriptors()
 	for (uint32_t i = 0; i < bindings.size(); ++i)
 	{
 		bindings[i].binding = i;
-		bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		bindings[i].descriptorType = (i == 2) ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		bindings[i].descriptorCount = 1;
 		bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	}
@@ -358,14 +366,15 @@ bool VulkanManager::Impl::createDescriptors()
 		return false;
 	}
 
-	VkDescriptorPoolSize poolSize = {};
-	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 3;
+	std::array<VkDescriptorPoolSize, 2> poolSizes = {{
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1 },
+	}};
 
 	VkDescriptorPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.poolSizeCount = uint32_t(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = 1;
 	result = vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool);
 	if (result != VK_SUCCESS)
@@ -631,7 +640,7 @@ bool VulkanManager::Impl::updateDescriptorSet(const Buffer& buffer0, const Buffe
 		writes[i].dstSet = descriptorSet;
 		writes[i].dstBinding = i;
 		writes[i].descriptorCount = 1;
-		writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[i].descriptorType = (i == 2) ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		writes[i].pBufferInfo = &bufferInfos[i];
 	}
 
@@ -654,6 +663,11 @@ bool VulkanManager::Impl::beginCommands()
 		return false;
 	}
 	return true;
+}
+
+VkDeviceSize VulkanManager::Impl::processInfoStride(VkDeviceSize size) const
+{
+	return AlignUp(size, physicalDeviceProperties.limits.minStorageBufferOffsetAlignment);
 }
 
 bool VulkanManager::Impl::submitAndWait()
@@ -715,10 +729,11 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 	Buffer imageBuffer;
 	Buffer errorBuffer;
 	Buffer processBuffer;
+	const VkDeviceSize processStride = processInfoStride(sizeof(SingleProcessInfo));
 	const size_t imageSize = size_t(w) * size_t(h) * sizeof(Color444);
 	bool ok = createBuffer(imageSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &imageBuffer)
 		&& createBuffer(kBruteForceColorCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &errorBuffer)
-		&& createBuffer(sizeof(SingleProcessInfo), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &processBuffer);
+		&& createBuffer(processStride, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &processBuffer);
 	if (!ok)
 	{
 		destroyBuffer(&processBuffer);
@@ -757,7 +772,8 @@ bool VulkanManager::Impl::bestSingle(Kernel kernel, const Color444* image, int w
 		if (ok)
 		{
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline(kernel));
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+			const uint32_t processOffset = 0;
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 1, &processOffset);
 			vkCmdDispatch(commandBuffer, uint32_t(h), kBruteForceColorCount / kSingleThreadGroupSize, 1);
 
 			VkBufferMemoryBarrier barrier = {};
@@ -818,13 +834,15 @@ bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w,
 	ApplyForcedColorsMulti(outPalettes, h, colorCount, forceColors);
 	const size_t imageSize = size_t(w) * size_t(h) * sizeof(Color444);
 	const size_t paletteSize = size_t(h) * size_t(colorCount) * sizeof(Color444);
+	const VkDeviceSize processStride = processInfoStride(sizeof(MultiProcessInfo));
+	const VkDeviceSize processBufferSize = processStride * VkDeviceSize(colorCount);
 
 	Buffer imageBuffer;
 	Buffer paletteBuffer;
 	Buffer processBuffer;
 	bool ok = createBuffer(imageSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &imageBuffer)
 		&& createBuffer(paletteSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &paletteBuffer)
-		&& createBuffer(sizeof(MultiProcessInfo), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &processBuffer);
+		&& createBuffer(processBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &processBuffer);
 	if (!ok)
 	{
 		destroyBuffer(&processBuffer);
@@ -839,27 +857,34 @@ bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w,
 		ok = false;
 	if (ok && !updateDescriptorSet(imageBuffer, paletteBuffer, processBuffer))
 		ok = false;
+	if (ok)
+	{
+		std::vector<uint8_t> processInfos(size_t(processBufferSize), uint8_t(0));
+		for (int palEntry = 1; palEntry < colorCount; ++palEntry)
+		{
+			MultiProcessInfo info = {};
+			info.w = uint32_t(w);
+			info.h = uint32_t(h);
+			info.palEntry = uint32_t(palEntry);
+			info.palStride = hamLayout ? 4u : uint32_t(bpc);
+			memcpy(processInfos.data() + size_t(processStride) * size_t(palEntry), &info, sizeof(info));
+		}
+		if (!writeBuffer(processBuffer, processInfos.data(), processInfos.size()))
+			ok = false;
+	}
+	if (ok && !beginCommands())
+		ok = false;
 
 	for (int palEntry = 1; ok && (palEntry < colorCount); ++palEntry)
 	{
 		if (forceColors && (forceColors[palEntry] >= 0))
 			continue;
 
-		MultiProcessInfo info = {};
-		info.w = uint32_t(w);
-		info.h = uint32_t(h);
-		info.palEntry = uint32_t(palEntry);
-		info.palStride = hamLayout ? 4u : uint32_t(bpc);
-		if (!writeBuffer(processBuffer, &info, sizeof(info)))
-			ok = false;
-
-		if (ok && !beginCommands())
-			ok = false;
-
 		if (ok)
 		{
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline(kernel));
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+			const uint32_t processOffset = uint32_t(processStride * VkDeviceSize(palEntry));
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 1, &processOffset);
 			vkCmdDispatch(commandBuffer, uint32_t(h), 1, 1);
 
 			VkBufferMemoryBarrier barrier = {};
@@ -880,10 +905,31 @@ bool VulkanManager::Impl::bestMulti(Kernel kernel, const Color444* image, int w,
 				1, &barrier,
 				0, nullptr);
 		}
-
-		if (ok && !submitAndWait())
-			ok = false;
 	}
+
+	if (ok)
+	{
+		VkBufferMemoryBarrier barrier = {};
+		barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.buffer = paletteBuffer.buffer;
+		barrier.offset = 0;
+		barrier.size = paletteBuffer.size;
+		vkCmdPipelineBarrier(
+			commandBuffer,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_HOST_BIT,
+			0,
+			0, nullptr,
+			1, &barrier,
+			0, nullptr);
+	}
+
+	if (ok && !submitAndWait())
+		ok = false;
 
 	if (ok && !readBuffer(paletteBuffer, outPalettes, paletteSize))
 		ok = false;
