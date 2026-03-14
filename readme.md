@@ -120,8 +120,15 @@ This produces a local `./abc2` binary.
 
 Notes:
 - On macOS, GPU brute-force palette search uses Metal.
-- On Linux, the build currently falls back to the CPU implementation because there is no Linux GPU backend yet.
+- On Linux, GPU brute-force palette search now uses Vulkan when the build finds the Vulkan loader plus `glslangValidator` and `xxd`.
+- If those Linux Vulkan build tools are missing, the build falls back to the CPU-only implementation.
 - The Windows build keeps the existing DirectX 11 GPU backend.
+
+On Ubuntu, `glslangValidator` is provided by:
+
+````
+sudo apt-get install glslang-tools
+````
 
 ### macOS Metal toolchain setup
 

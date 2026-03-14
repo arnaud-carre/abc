@@ -1,0 +1,104 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer ImageBuffer
+{
+	uint inImage[];
+};
+
+layout(std430, binding = 1) buffer ErrorBuffer
+{
+	uint inOutErrors[];
+};
+
+layout(std430, binding = 2) readonly buffer ProcessInfoBuffer
+{
+	uint m_w;
+	uint m_h;
+	uint m_palEntry;
+	uint m_pad;
+	uint inPalette[32];
+};
+
+int GetR(uint c) { return int((c >> 8) & 15u); }
+int GetG(uint c) { return int((c >> 4) & 15u); }
+int GetB(uint c) { return int((c >> 0) & 15u); }
+
+uint DistanceR(int r0, int r1)
+{
+	int dr = (r0 - r1) * 3;
+	return uint(dr * dr);
+}
+
+uint DistanceG(int g0, int g1)
+{
+	int dg = (g0 - g1) * 4;
+	return uint(dg * dg);
+}
+
+uint DistanceB(int b0, int b1)
+{
+	int db = (b0 - b1) * 2;
+	return uint(db * db);
+}
+
+uint Distance(uint c0, uint c1)
+{
+	return DistanceR(GetR(c0), GetR(c1))
+		+ DistanceG(GetG(c0), GetG(c1))
+		+ DistanceB(GetB(c0), GetB(c1));
+}
+
+uint GetBestHAMColor(uint original, uint previous, out uint errOut, uint currentBruteforceColor)
+{
+	uint err = 0xffffffffu;
+	int oR = GetR(original);
+	int oG = GetG(original);
+	int oB = GetB(original);
+	uint distR = DistanceR(oR, GetR(previous));
+	uint distG = DistanceG(oG, GetG(previous));
+	uint distB = DistanceB(oB, GetB(previous));
+
+	uint d = ((distG + distB) << 17) | (0u << 12) | (uint(oR) << 8) | (previous & 0x0ffu);
+	err = min(err, d);
+	d = ((distR + distB) << 17) | (1u << 12) | (uint(oG) << 4) | (previous & 0xf0fu);
+	err = min(err, d);
+	d = ((distR + distG) << 17) | (2u << 12) | (uint(oB) << 0) | (previous & 0xff0u);
+	err = min(err, d);
+
+	uint sort = 3u << 12;
+	for (uint p = 0u; p < m_palEntry; ++p)
+	{
+		uint colPal = inPalette[p];
+		d = Distance(original, colPal);
+		d = (d << 17) | sort | colPal;
+		err = min(err, d);
+		sort += 1u << 12;
+	}
+
+	d = Distance(original, currentBruteforceColor);
+	d = (d << 17) | sort | currentBruteforceColor;
+	err = min(err, d);
+
+	errOut = err >> 17;
+	return err & 0xfffu;
+}
+
+void main()
+{
+	uint bruteColor = gl_WorkGroupID.y * 64u + gl_LocalInvocationID.x;
+	uint scanline = gl_WorkGroupID.x;
+
+	uint prevColor = inPalette[0];
+	uint err = 0u;
+	uint readImgAd = scanline * m_w;
+	for (uint x = 0u; x < m_w; ++x)
+	{
+		uint pixelErr;
+		prevColor = GetBestHAMColor(inImage[readImgAd++], prevColor, pixelErr, bruteColor);
+		err += pixelErr;
+	}
+
+	atomicAdd(inOutErrors[bruteColor], err);
+}

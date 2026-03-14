@@ -10,6 +10,8 @@
 #include "dx11.h"
 #elif defined(__APPLE__)
 #include "metalManager.h"
+#elif defined(ABC_HAVE_VULKAN)
+#include "vulkanManager.h"
 #endif
 
 std::unique_ptr<ComputeManager> CreateComputeManager()
@@ -18,6 +20,8 @@ std::unique_ptr<ComputeManager> CreateComputeManager()
 	return std::make_unique<Dx11Manager>();
 #elif defined(__APPLE__)
 	return std::make_unique<MetalManager>();
+#elif defined(ABC_HAVE_VULKAN)
+	return std::make_unique<VulkanManager>();
 #else
 	return nullptr;
 #endif
