@@ -419,24 +419,25 @@ bool	Dx11Manager::bestSinglePaletteSearch(const Color444* image, int w, int h, C
 					// For single palette mode, CPU have to retreive the minimal error among the 4096 results,
 					// and set it as color in the current palette entry
 					u32 errors[4096];	// 16KiB on stack is perfectly fine for today standard :)
-					if (outErrorBuffer.ReadData(m_pImmediateContext, errors, sizeof(errors)))
-					{
-						u32 bestError = ~0;
-						int bestColor;
-						for (int i = 0; i < 4096; i++)
+						if (outErrorBuffer.ReadData(m_pImmediateContext, errors, sizeof(errors)))
+						{
+							u32 bestError = ~0;
+							int bestColor;
+							for (int i = 0; i < 4096; i++)
 						{
 							if (errors[i] < bestError)
 							{
 								bestError = errors[i];
 								bestColor = i;
+								}
 							}
+							outPalettes[palEntry].SetRGB444(bestColor);
+							bRet = true;
 						}
-						outPalettes[palEntry].SetRGB444(bestColor);
-					}
-					else
-					{
-						printf("ERROR: GPU can't read back error data in HAM kernel\n");
-					}
+						else
+						{
+							printf("ERROR: GPU can't read back error data in HAM kernel\n");
+						}
 				}
 			}
 			else
