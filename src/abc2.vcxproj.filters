@@ -54,6 +54,9 @@
     <ClCompile Include="tileset.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="jobSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc2.h">
@@ -93,6 +96,9 @@
       <Filter>shaders</Filter>
     </ClInclude>
     <ClInclude Include="tileset.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="jobSystem.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -181,6 +181,7 @@
     <ClCompile Include="extern\libspng\spng.c" />
     <ClCompile Include="extern\miniz\miniz.c" />
     <ClCompile Include="ham.cpp" />
+    <ClCompile Include="jobSystem.cpp" />
     <ClCompile Include="pngFile.cpp" />
     <ClCompile Include="tileset.cpp" />
   </ItemGroup>
@@ -192,6 +193,7 @@
     <ClInclude Include="extern\libspng\spng.h" />
     <ClInclude Include="extern\miniz\miniz.h" />
     <ClInclude Include="ham.h" />
+    <ClInclude Include="jobSystem.h" />
     <ClInclude Include="pngFile.h" />
     <ClInclude Include="shaders\HamCompute.h" />
     <ClInclude Include="shaders\MppCompute.h" />

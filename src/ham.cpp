@@ -7,21 +7,19 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-#include <windows.h>			// thread stuff
-#include <thread>
 #include <time.h>
 #include "abc2.h"
 #include "color.h"
 #include "ham.h"
 #include "dithering.h"
 #include "dx11.h"
+#include "jobSystem.h"
 
 static LazyTables	s_lazyInit;
-static const int	kMaxThreads = 64;
+static const int	kMaxHamJobs = 64;
 
-static BruteForceHam::ThreadState states[kMaxThreads];
-static void*	hThreads[kMaxThreads];
-static int		gThreadsCount;
+static BruteForceHam::ThreadState states[kMaxHamJobs];
+static int		gHamJobsCount;
 
 LazyTables::LazyTables()
 {
@@ -44,12 +42,9 @@ LazyTables::LazyTables()
 		}
 	}
 
-	gThreadsCount = std::thread::hardware_concurrency();
-	if (gThreadsCount <= 0)
-		gThreadsCount = 1;
-	else if (gThreadsCount > kMaxThreads)
-		gThreadsCount = kMaxThreads;
-
+	gHamJobsCount = JobSystem::GetHardwareWorkerCount();
+	if (gHamJobsCount > kMaxHamJobs)
+		gHamJobsCount = kMaxHamJobs;
 }
 
 int	LazyTables::distR[16*16];
@@ -227,9 +222,10 @@ ColorError_t	BruteForceHam::ErrorComputeSinglePal(const Color444* palette, int p
 	return err;
 }
 
-unsigned long threadMainHAM(void *pUser)
+bool threadMainHAMJS(void *pUser, int itemId, int workerId)
 {
 	BruteForceHam::ThreadState* state = (BruteForceHam::ThreadState*)pUser;
+	state += itemId;
 
 	ColorError_t best = kColorErrorMax;
 	int bestBruteColor;
@@ -245,12 +241,13 @@ unsigned long threadMainHAM(void *pUser)
 	}
 	state->bestBruteColor = bestBruteColor;
 	state->bestError = best;
-	return 0;
+	return true;
 }
 
-unsigned long threadMainSinglePal(void *pUser)
+bool threadMainSinglePalJS(void *pUser, int itemId, int workerId)
 {
 	BruteForceHam::ThreadState* state = (BruteForceHam::ThreadState*)pUser;
+	state += itemId;
 
 	ColorError_t best = kColorErrorMax;
 	int bestBruteColor;
@@ -266,14 +263,15 @@ unsigned long threadMainSinglePal(void *pUser)
 	}
 	state->bestBruteColor = bestBruteColor;
 	state->bestError = best;
-	return 0;
+	return true;
 }
 
 
-
-unsigned long threadMainSHAM(void *pUser)
+bool threadMainSHAMJS(void *pUser, int itemId, int workerId)
 {
 	BruteForceHam::ThreadState* state = (BruteForceHam::ThreadState*)pUser;
+	state += itemId;
+
 	int bestBruteColor;
 	assert(state->params);
 	for (int line = state->rangeStart; line < state->rangeEnd; line++)
@@ -304,13 +302,14 @@ unsigned long threadMainSHAM(void *pUser)
 			palette[palEntry].SetRGB444(bestBruteColor);
 		}
 	}
-	return 0;
+	return true;
 }
 
 
-unsigned long threadMainMpp(void *pUser)
+bool threadMainMppJS(void *pUser, int itemId, int workerId)
 {
 	BruteForceHam::ThreadState* state = (BruteForceHam::ThreadState*)pUser;
+	state += itemId;
 
 	for (int line = state->rangeStart; line < state->rangeEnd; line++)
 	{
@@ -330,7 +329,7 @@ unsigned long threadMainMpp(void *pUser)
 		// store best color
 		pal[state->currentPalIndex].SetRGB444(bestBruteColor);
 	}
-	return 0;
+	return true;
 }
 
 void	BruteForceHam::SplitRanges(ThreadState* ts, int threadCount, int maxRange)
@@ -369,7 +368,7 @@ void	BruteForceHam::BestHAMPaletteSearch(Color444* bitmap, int w, int h, Color44
 
 
 		// classic HAM, one 16 colors palette for complete image
-		printf("  Brute force palette search for HAM mode, CPU, %d threads running...\n", gThreadsCount);
+		printf("  Brute force palette search for HAM mode, CPU, using %d jobs...\n", gHamJobsCount);
 
 		for (int pi = 0; pi < 16; pi++)
 		{
@@ -383,29 +382,30 @@ void	BruteForceHam::BestHAMPaletteSearch(Color444* bitmap, int w, int h, Color44
 				{
 
 					// create and start all threads
-					SplitRanges(states, gThreadsCount, 4096);
-					for (int i = 0; i < gThreadsCount; i++)
+					SplitRanges(states, gHamJobsCount, 4096);
+					for (int i = 0; i < gHamJobsCount; i++)
 					{
 						memcpy(states[i].pal, palette, 16 * sizeof(Color444));
 						states[i].palSize = palSize;
 						states[i].solver = this;
 						states[i].currentPalIndex = pi;
-						hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainHAM, states + i, 0, NULL);
 					}
 
+					JobSystem js;
+					js.RunJobs(states, gHamJobsCount, threadMainHAMJS);
+
 					// wait for all threads to finish
-					WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
+					js.WaitForCompletion();
 
 					// now get the best result
 					ColorError_t best = kColorErrorMax;
-					for (int r = 0; r < gThreadsCount; r++)
+					for (int r = 0; r < gHamJobsCount; r++)
 					{
 						if (states[r].bestError < best)
 						{
 							bestBruteColor = states[r].bestBruteColor;
 							best = states[r].bestError;
 						}
-						CloseHandle(hThreads[r]);
 					}
 				}
 				else
@@ -442,15 +442,6 @@ void	BruteForceHam::BestSHAMPaletteSearch(Color444* bitmap, int w, int h, Color4
 	bool verbose = params.hamDebug;
 	m_original = bitmap;
 
-	int threadsCount = std::thread::hardware_concurrency();
-	if (threadsCount <= 0)
-		threadsCount = 1;
-	else if (threadsCount > kMaxThreads)
-		threadsCount = kMaxThreads;
-
-	ThreadState states[kMaxThreads];
-	void*	hThreads[kMaxThreads];
-
 	clock_t t0 = clock();
 
 	{
@@ -464,18 +455,20 @@ void	BruteForceHam::BestSHAMPaletteSearch(Color444* bitmap, int w, int h, Color4
 		}
 		else
 		{
-			printf("  Brute force palette search for SHAM mode, CPU mode, %d threads running...\n", threadsCount);
-			SplitRanges(states, threadsCount, m_h);			// in SHAM we split thread work per lines!
-			for (int i = 0; i < threadsCount; i++)
+			printf("  Brute force palette search for SHAM mode, CPU mode, using %d jobs...\n", gHamJobsCount);
+			SplitRanges(states, gHamJobsCount, m_h);			// in SHAM we split thread work per lines!
+			for (int i = 0; i < gHamJobsCount; i++)
 			{
 				states[i].mpp_palettes = palette;
 				states[i].solver = this;
 				states[i].params = &params;
-				hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainSHAM, states + i, 0, NULL);
 			}
 
+			JobSystem js;
+			js.RunJobs(states, gHamJobsCount, threadMainSHAMJS);
+
 			// wait for all threads to finish
-			WaitForMultipleObjects(threadsCount, hThreads, TRUE, INFINITE);
+			js.WaitForCompletion();
 		}
 	}
 
@@ -506,7 +499,7 @@ void	BruteForceHam::BestMultiPaletteSearch(Color444* bitmap, int w, int h, AmigA
 	}
 	else
 	{
-		printf("  Brute force Multi Palette palette search, CPU mode, %d threads running...\n", gThreadsCount);
+		printf("  Brute force Multi Palette palette search, CPU mode, using %d jobs...\n", gHamJobsCount);
 
 
 		for (int pi = 0; pi < colorCount; pi++)
@@ -521,22 +514,21 @@ void	BruteForceHam::BestMultiPaletteSearch(Color444* bitmap, int w, int h, AmigA
 				{
 
 					// create and start all threads
-					SplitRanges(states, gThreadsCount, m_h);
-					for (int i = 0; i < gThreadsCount; i++)
+					SplitRanges(states, gHamJobsCount, m_h);
+					for (int i = 0; i < gHamJobsCount; i++)
 					{
 						states[i].mpp_palettes = palettes;
 						states[i].mpp_strideShift = params.bitplanCount;
 						states[i].palSize = palSize;
 						states[i].solver = this;
 						states[i].currentPalIndex = pi;
-						hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainMpp, states + i, 0, NULL);
 					}
 
-					// wait for all threads to finish
-					WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
+					JobSystem js;
+					js.RunJobs(states, gHamJobsCount, threadMainMppJS);
 
-					for (int r = 0; r < gThreadsCount; r++)
-						CloseHandle(hThreads[r]);
+					// wait for all threads to finish
+					js.WaitForCompletion();
 				}
 				else
 				{
@@ -598,7 +590,7 @@ void	BruteForceHam::BestPaletteSearch(Color444* bitmap, int w, int h, AmigAtariB
 	else
 	{
 		// classic HAM, one 16 colors palette for complete image
-		printf("  Brute force %d colors palette search, CPU, %d threads running...\n", colorCount, gThreadsCount);
+		printf("  Brute force %d colors palette search, CPU, using %d jobs...\n", colorCount, gHamJobsCount);
 		for (int pi = 0; pi < colorCount; pi++)
 		{
 			int bestBruteColor = 0;
@@ -610,29 +602,30 @@ void	BruteForceHam::BestPaletteSearch(Color444* bitmap, int w, int h, AmigAtariB
 				if (params.forceColors[pi] < 0)
 				{
 					// create and start all threads
-					SplitRanges(states, gThreadsCount, 4096);
-					for (int i = 0; i < gThreadsCount; i++)
+					SplitRanges(states, gHamJobsCount, 4096);
+					for (int i = 0; i < gHamJobsCount; i++)
 					{
 						memcpy(states[i].pal, palette, colorCount * sizeof(Color444));
 						states[i].palSize = palSize;
 						states[i].solver = this;
 						states[i].currentPalIndex = pi;
-						hThreads[i] = (void*)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadMainSinglePal, states + i, 0, NULL);
 					}
 
+					JobSystem js;
+					js.RunJobs(states, gHamJobsCount, threadMainSinglePalJS);
+
 					// wait for all threads to finish
-					WaitForMultipleObjects(gThreadsCount, hThreads, TRUE, INFINITE);
+					js.WaitForCompletion();
 
 					// now get the best result
 					ColorError_t best = kColorErrorMax;
-					for (int r = 0; r < gThreadsCount; r++)
+					for (int r = 0; r < gHamJobsCount; r++)
 					{
 						if (states[r].bestError < best)
 						{
 							bestBruteColor = states[r].bestBruteColor;
 							best = states[r].bestError;
 						}
-						CloseHandle(hThreads[r]);
 					}
 				}
 				else
