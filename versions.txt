@@ -1,3 +1,6 @@
+v2.10
+	- MAC and Linux ports (thanks to Stefan Reinauer)
+	
 v2.06
 	- added "-copper" option to save palette file as copper ready to use
 

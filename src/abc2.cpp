@@ -1379,7 +1379,7 @@ int	AmigAtariBitmap::GetPixelId(int x, int y) const
 
 int main(int argc, char*argv[])
 {
-	printf("AmigAtari Bitmap Converter v2.06 by Leonard/Oxygene\n"
+	printf("AmigAtari Bitmap Converter v2.10 by Leonard/Oxygene\n"
 	       "(GPU Enhanced version)\n\n");
 
 	ConvertParams params;
