@@ -43,6 +43,10 @@ public:
 		ColorError_t bestError;
 		int bestBruteColor;
 		const ConvertParams* params = nullptr;
+		const Color444* original = nullptr;
+		const ColorError_t* cachedErrors = nullptr;
+		int imageWidth = 0;
+		int pixelCount = 0;
 	};
 
 private:
@@ -67,4 +71,3 @@ private:
 
 void	SaveRGBPcPreview(const Color444* img, int w, int h, const char* sFilename);
 void	SaveSHAM5bPcPreview(const Color444* imgA, int w, int h, const char* sFilename);
-

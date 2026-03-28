@@ -1,0 +1,114 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer ImageBuffer
+{
+	uint inImage[];
+};
+
+layout(std430, binding = 1) buffer ResultBuffer
+{
+	uvec2 outResults[];
+};
+
+layout(std430, binding = 2) readonly buffer ProcessInfoBuffer
+{
+	uint m_w;
+	uint m_h;
+	uint m_palEntry;
+	uint m_pad;
+	uint inPalette[32];
+};
+
+int GetR(uint c) { return int((c >> 8) & 15u); }
+int GetG(uint c) { return int((c >> 4) & 15u); }
+int GetB(uint c) { return int((c >> 0) & 15u); }
+
+uint DistanceR(int r0, int r1)
+{
+	int dr = (r0 - r1) * 3;
+	return uint(dr * dr);
+}
+
+uint DistanceG(int g0, int g1)
+{
+	int dg = (g0 - g1) * 4;
+	return uint(dg * dg);
+}
+
+uint DistanceB(int b0, int b1)
+{
+	int db = (b0 - b1) * 2;
+	return uint(db * db);
+}
+
+uint Distance(uint c0, uint c1)
+{
+	return DistanceR(GetR(c0), GetR(c1))
+		+ DistanceG(GetG(c0), GetG(c1))
+		+ DistanceB(GetB(c0), GetB(c1));
+}
+
+uint GetBestColor(uint original, uint currentBruteforceColor)
+{
+	uint err = 0xffffffffu;
+	uint sort = 0u;
+
+	for (uint p = 0u; p < m_palEntry; ++p)
+	{
+		uint colPal = inPalette[p];
+		uint d = Distance(original, colPal);
+		d = (d << 17) | sort | colPal;
+		err = min(err, d);
+		sort += 1u << 12;
+	}
+
+	uint d = Distance(original, currentBruteforceColor);
+	d = (d << 17) | sort | currentBruteforceColor;
+	err = min(err, d);
+
+	return err >> 17;
+}
+
+bool IsBetter(uint err, uint color, uint bestErr, uint bestColor)
+{
+	return (err < bestErr) || ((err == bestErr) && (color < bestColor));
+}
+
+shared uint sharedErrors[64];
+shared uint sharedColors[64];
+
+void main()
+{
+	uint bruteColor = gl_WorkGroupID.x * 64u + gl_LocalInvocationID.x;
+
+	uint err = 0u;
+	for (uint scanline = 0u; scanline < m_h; ++scanline)
+	{
+		uint readImgAd = scanline * m_w;
+		for (uint x = 0u; x < m_w; ++x)
+		{
+			err += GetBestColor(inImage[readImgAd++], bruteColor);
+		}
+	}
+
+	sharedErrors[gl_LocalInvocationID.x] = err;
+	sharedColors[gl_LocalInvocationID.x] = bruteColor;
+	barrier();
+
+	for (uint stride = 32u; stride > 0u; stride >>= 1u)
+	{
+		if ((gl_LocalInvocationID.x < stride) &&
+			IsBetter(sharedErrors[gl_LocalInvocationID.x + stride], sharedColors[gl_LocalInvocationID.x + stride],
+				sharedErrors[gl_LocalInvocationID.x], sharedColors[gl_LocalInvocationID.x]))
+		{
+			sharedErrors[gl_LocalInvocationID.x] = sharedErrors[gl_LocalInvocationID.x + stride];
+			sharedColors[gl_LocalInvocationID.x] = sharedColors[gl_LocalInvocationID.x + stride];
+		}
+		barrier();
+	}
+
+	if (gl_LocalInvocationID.x == 0u)
+		outResults[gl_WorkGroupID.x] = uvec2(sharedErrors[0], sharedColors[0]);
+}

@@ -108,6 +108,47 @@ Blog post 2: [how the GPU is used to speed up the brute force search](https://ar
 
 abc has been used in *many* Atari and Amiga demos (and one game :) )
 
+## Building on macOS and Linux
+
+There is now a simple `Makefile` for POSIX builds:
+
+````
+make
+````
+
+This produces a local `./abc2` binary.
+
+Notes:
+- On macOS, GPU brute-force palette search uses Metal.
+- On Linux, GPU brute-force palette search now uses Vulkan when the build finds the Vulkan loader plus `glslangValidator` and `xxd`.
+- If those Linux Vulkan build tools are missing, the build falls back to the CPU-only implementation.
+- The Windows build keeps the existing DirectX 11 GPU backend.
+
+On Ubuntu, `glslangValidator` is provided by:
+
+````
+sudo apt-get install glslang-tools
+````
+
+### macOS Metal toolchain setup
+
+On a fresh macOS/Xcode install, the runtime Metal backend may need the Metal toolchain component to be installed before it can compile shaders correctly.
+
+If `xcrun -sdk macosx metal --version` reports a missing Metal toolchain, run:
+
+````
+sudo xcodebuild -runFirstLaunch
+xcodebuild -downloadComponent MetalToolchain
+````
+
+Then verify the compiler is available:
+
+````
+xcrun -sdk macosx metal --version
+````
+
+After that, rebuild `abc2` with `make` and run it directly from `Terminal.app` on your Mac.
+
 [<img src="https://content.pouet.net/files/screenshots/00096/00096577.jpg">](https://www.pouet.net/prod.php?which=96577)
 
 [<img src="https://content.pouet.net/files/screenshots/00094/00094129.jpg">](https://www.pouet.net/prod.php?which=94129)
@@ -119,4 +160,3 @@ abc has been used in *many* Atari and Amiga demos (and one game :) )
 [<img src="https://content.pouet.net/files/screenshots/00091/00091996.png">](https://www.pouet.net/prod.php?which=91996)
 
 [<img src="https://content.pouet.net/files/screenshots/00081/00081081.jpg">](https://www.pouet.net/prod.php?which=81081)
-

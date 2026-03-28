@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include "dx11.h"
 #include "abc2.h"
 #include "ham.h"
 #include "dithering.h"
@@ -23,7 +22,11 @@ ConvertParams::ConvertParams()
 	atari = false;
 	ste = false;
 	bitplanCount = -1;
+#if defined(_WIN32) || defined(__APPLE__) || defined(ABC_HAVE_VULKAN)
 	gpu = true;
+#else
+	gpu = false;
+#endif
 	mask = false;
 	invMask = false;
 	copper = false;
@@ -54,7 +57,7 @@ static bool	IsIndexNeedShrinking(pngFile& bitmap, int colorCount)
 	{
 		for (int x = 0; x < w; x++)
 		{
-			BYTE index;
+			uint8_t index;
 			bitmap.GetPixelIndex(x, y, index);
 			if (int(index) >= colorCount)
 				return true;
@@ -237,12 +240,6 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 			printf("ERROR: -forcecolor should always be used with -quantize or any HAM mode\n");
 			ret = false;
 		}
-		if (gpu)
-		{
-			printf("Warning: -forcecolor option enable, GPU code path is switched OFF in this version\n");
-			gpu = false;
-		}
-		
 	}
 
 	if (bitplanCount > 0)
@@ -566,7 +563,7 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 				argId++;
 				if (unsigned(index) < 32)
 				{
-					sscanf_s(argv[argId], "%x", &params.forceColors[index]);
+					sscanf(argv[argId], "%x", &params.forceColors[index]);
 				}
 				else
 				{
@@ -741,8 +738,8 @@ static	u16	AmigaAtariColorExport(const ConvertParams& params, Color444 c)
 bool	SaveRGBFile(const ConvertParams& params, const Color444* bitmap, int w, int h, const char* sFilename)
 {
 	bool ret = false;
-	FILE* hf;
-	if (0 == fopen_s(&hf, sFilename, "wb"))
+	FILE* hf = fopen(sFilename, "wb");
+	if (hf)
 	{
 		printf("Saving RGB file (%d*%d)\n", w, h);
 		for (int y = 0; y < h; y++)
@@ -850,7 +847,7 @@ bool	ConvertToStandardIndexed(const ConvertParams& params, pngFile& bitmap, Amig
 	{
 		for (int x = 0; x < w; x++)
 		{
-			BYTE index;
+			uint8_t index;
 			bitmap.GetPixelIndex(x, y, index);
 			// Remap into shrinked palette
 			const u8 remapId = remapTable[index];
@@ -918,8 +915,8 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 		params.chunky?"chunky":"bitplan",
 		sFilename);
 	bool ret = false;
-	FILE* hf;
-	if (0 == fopen_s(&hf, sFilename, "wb"))
+	FILE* hf = fopen(sFilename, "wb");
+	if (hf)
 	{
 		printf("  %d bitplans, %d block(s) of %d*%d each...\n", m_bpc, params.sprCount, params.sprW, params.sprH);
 
@@ -1027,8 +1024,8 @@ bool	AmigAtariBitmap::SaveIff(const ConvertParams& params, const char* sFilename
 
 	printf("Saving IFF bitmap file \"%s\"...\n", sFilename);
 	bool ret = false;
-	FILE* hf;
-	if (0 == fopen_s(&hf, sFilename, "wb"))
+	FILE* hf = fopen(sFilename, "wb");
+	if (hf)
 	{
 		fwrite("FORM", 1, 4, hf);
 		w32(hf, 0);		// dummy size
@@ -1117,8 +1114,8 @@ bool	AmigAtariBitmap::SavePalettes(const ConvertParams& params, const char* sFil
 	if (params.copper)
 		printf("(copper-list mode enabled)\n");
 	bool ret = false;
-	FILE* hf;
-	if (0 == fopen_s(&hf, sFilename, "wb"))
+	FILE* hf = fopen(sFilename, "wb");
+	if (hf)
 	{
 		const int colorCount = m_ham?16:(1 << m_bpc);
 		const int palCount = m_multiPalette ? m_h : 1;

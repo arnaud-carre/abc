@@ -176,6 +176,7 @@
   <ItemGroup>
     <ClCompile Include="abc2.cpp" />
     <ClCompile Include="color.cpp" />
+    <ClCompile Include="computeManager.cpp" />
     <ClCompile Include="dithering.cpp" />
     <ClCompile Include="dx11.cpp" />
     <ClCompile Include="extern\libspng\spng.c" />
@@ -188,6 +189,7 @@
   <ItemGroup>
     <ClInclude Include="abc2.h" />
     <ClInclude Include="color.h" />
+    <ClInclude Include="computeManager.h" />
     <ClInclude Include="dithering.h" />
     <ClInclude Include="dx11.h" />
     <ClInclude Include="extern\libspng\spng.h" />
