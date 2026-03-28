@@ -18,6 +18,7 @@ CPP_SRCS := \
 	src/computeManager.cpp \
 	src/dithering.cpp \
 	src/ham.cpp \
+	src/jobSystem.cpp \
 	src/pngFile.cpp \
 	src/tileset.cpp
 
