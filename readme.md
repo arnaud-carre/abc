@@ -105,10 +105,6 @@ Blog post 1: [how the brute force best palette search is done](https://arnaud-ca
 
 Blog post 2: [how the GPU is used to speed up the brute force search](https://arnaud-carre.github.io/2023-12-10-gpgpu/)
 
-## Production ready
-
-abc has been used in *many* Atari and Amiga demos (and one game :) )
-
 ## Building on macOS and Linux
 
 There is now a simple `Makefile` for POSIX builds:
@@ -149,6 +145,10 @@ xcrun -sdk macosx metal --version
 ````
 
 After that, rebuild `abc2` with `make` and run it directly from `Terminal.app` on your Mac.
+
+## Production ready
+
+abc has been used in *many* Atari and Amiga demos (and one game :) )
 
 [<img src="https://content.pouet.net/files/screenshots/00096/00096577.jpg">](https://www.pouet.net/prod.php?which=96577)
 
