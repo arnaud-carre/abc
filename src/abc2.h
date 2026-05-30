@@ -56,6 +56,8 @@ struct ConvertParams
 	int			sprW;
 	int			sprH;
 	int			sprCount;
+	int sprX;
+	int sprY;
 
 	bool		rgb;
 
@@ -177,7 +179,7 @@ struct AmigAtariBitmap
 	bool		SavePalettes(const ConvertParams& params, const char* sFilename);
 	bool		SavePcPreview(const ConvertParams& params, const char* sFilename);
 	bool ConvertToMask(bool inv);
-
+	const u8* GetPixelAddr(int blockX, int blockY, int line, const ConvertParams& params) const;
 	int			m_w;
 	int			m_h;
 	int			m_bpc;

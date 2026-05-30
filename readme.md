@@ -5,7 +5,7 @@ One key feature is brute force best palette search when color quantization is ne
 
 ## Some features
 - Use your GPU power for heavy calculations like brute foce optimal best color quantization
-- Supports Windows, Mac and Linux ( thanks to Stefan Reinauer for non Windows ports )
+- Not only windows, now supports Mac and Linux ( thanks to Stefan Reinauer )
 - 1 to 5 bitplans support
 - Support sprite or bitmap font sheets
 - Amiga HAM, Sliced-HAM or high quality SHAM5b (using brute force best palette search)
@@ -84,6 +84,8 @@ Options:
 	-sprw <w> : input image contains w pixels width tiles
 	-sprh <h> : input image contains h pixels high tiles
 	-sprc <n> : input image contains n tiles
+	-sprx <x> : start pos X of first tile
+	-spry <y> : start pos Y of first tile
 	-cropx <x> : crop source image at x position
 	-cropy <y> : crop source image at y position
 	-cropw <w> : crop w pixels width in source image
@@ -93,7 +95,8 @@ Options:
 ## Credits
 
 - Written by [Arnaud Carré](https://twitter.com/leonard_coder) aka Leonard/Oxygene
-- abc2 is using [libspng](https://github.com/randy408/libspng) and [miniz](https://github.com/richgel999/miniz) for PNG file reading & writing. 
+- abc2 is using [libspng](https://github.com/randy408/libspng) and [miniz](https://github.com/richgel999/miniz) for PNG file reading & writing.
+- Mac & Linux ports by Stefan Reinauer
 
 ## Links
 

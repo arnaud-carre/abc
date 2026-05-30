@@ -323,7 +323,14 @@ bool	ConvertParams::Validate(pngFile& bitmap)
 	if (0 == sprH)
 		sprH = imgH;
 
-	const int maxSprite = (imgW / sprW) * (imgH / sprH);
+	if ((sprX + sprW > imgW) ||
+		(sprY + sprH > imgH))
+	{
+		printf("ERROR: invalid -sprx or -spry (outside of image)\n");
+		ret = false;
+	}
+
+	const int maxSprite = ((imgW-sprX) / sprW) * ((imgH-sprY) / sprH);
 	if (0 == sprCount)
 		sprCount = maxSprite;
 	else
@@ -470,6 +477,8 @@ void	Help()
 		    "\t-sprw <w> : input image contains w pixels width tiles\n"
 			"\t-sprh <h> : input image contains h pixels high tiles\n"
 			"\t-sprc <n> : input image contains n tiles\n"
+			"\t-sprx <x> : start pos X of first tile\n"
+			"\t-spry <y> : start pos Y of first tile\n"
 			"\t-cropx <x> : crop source image at x position\n"
 			"\t-cropy <y> : crop source image at y position\n"
 			"\t-cropw <w> : crop w pixels width in source image\n"
@@ -505,6 +514,16 @@ bool	ParseArgs(int argc, char* argv[], ConvertParams& params)
 			{
 				argId++;
 				params.sprCount = atoi(argv[argId]);
+			}
+			else if ((0 == strcmp("-sprx", argv[argId]) && (argId + 1 < argc)))
+			{
+				argId++;
+				params.sprX = atoi(argv[argId]);
+			}
+			else if ((0 == strcmp("-spry", argv[argId]) && (argId + 1 < argc)))
+			{
+				argId++;
+				params.sprY = atoi(argv[argId]);
 			}
 			else if ((0 == strcmp("-cropx", argv[argId]) && (argId + 1 < argc)))
 			{
@@ -907,6 +926,12 @@ bool AmigAtariBitmap::ConvertToMask(bool inv)
 	return true;
 }
 
+const u8* AmigAtariBitmap::GetPixelAddr(int blockX, int blockY, int line, const ConvertParams& params) const
+{
+	const u8* pixels = m_pixels + (blockY * params.sprH + line + params.sprY)*m_w + (blockX * params.sprW) + params.sprX;
+	return pixels;
+}
+
 bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFilename)
 {
 	assert(m_pixels);
@@ -918,12 +943,15 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 	FILE* hf = fopen(sFilename, "wb");
 	if (hf)
 	{
-		printf("  %d bitplans, %d block(s) of %d*%d each...\n", m_bpc, params.sprCount, params.sprW, params.sprH);
+		printf("  %d bitplans, %d block(s) of %d*%d each (start offset %d,%d)\n", m_bpc, params.sprCount, params.sprW, params.sprH, params.sprX, params.sprY);
+
+		const int blockHCount = (m_w - params.sprX) / params.sprW;
+		const int blockVCount = (m_h - params.sprY) / params.sprH;
 
 		int sprCount = 0;
-		for (int yb = 0; yb < m_h / params.sprH; yb++)
+		for (int yb = 0; yb < blockVCount; yb++)
 		{
-			for (int xb = 0; xb < m_w / params.sprW; xb++)
+			for (int xb = 0; xb < blockHCount; xb++)
 			{
 				if (sprCount < params.sprCount)
 				{
@@ -934,7 +962,7 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 							// up to 4 bitplans, store two pixels per byte in chunky mode
 							for (int y = 0; y < params.sprH; y++)
 							{
-								const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+								const u8* pixels = GetPixelAddr(xb, yb, y, params);
 								for (int x = 0; x < params.sprW; x += 2)
 								{
 									u8 val = (pixels[0] << 4) | (pixels[1]);
@@ -948,7 +976,7 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 							// more than 4 bitplans, store 1 pixel per byte
 							for (int y = 0; y < params.sprH; y++)
 							{
-								const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+								const u8* pixels = GetPixelAddr(xb, yb, y, params);
 								fwrite(pixels, 1, params.sprW, hf);
 							}
 						}
@@ -959,7 +987,7 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 						{
 							for (int y = 0; y < params.sprH; y++)
 							{
-								const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+								const u8* pixels = GetPixelAddr(xb, yb, y, params);
 								outputBitplanLine(p, pixels, params.sprW, hf);
 							}
 						}
@@ -968,7 +996,7 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 					{
 						for (int y = 0; y < params.sprH; y++)
 						{
-							const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+							const u8* pixels = GetPixelAddr(xb, yb, y, params);
 							outputBitplanAtariLine(m_bpc, pixels, params.sprW, hf);
 						}
 					}
@@ -978,7 +1006,7 @@ bool	AmigAtariBitmap::SaveBitplans(const ConvertParams& params, const char* sFil
 						{
 							for (int p = 0; p < m_bpc; p++)
 							{
-								const u8* pixels = m_pixels + (yb * params.sprH + y)*m_w + xb * params.sprW;
+								const u8* pixels = GetPixelAddr(xb, yb, y, params);
 								outputBitplanLine(p, pixels, params.sprW, hf);
 							}
 						}
@@ -1379,7 +1407,7 @@ int	AmigAtariBitmap::GetPixelId(int x, int y) const
 
 int main(int argc, char*argv[])
 {
-	printf("AmigAtari Bitmap Converter v2.10 by Leonard/Oxygene\n"
+	printf("AmigAtari Bitmap Converter v2.11 by Leonard/Oxygene\n"
 	       "(GPU Enhanced version)\n\n");
 
 	ConvertParams params;
