@@ -108,6 +108,11 @@ Blog post 1: [how the brute force best palette search is done](https://arnaud-ca
 
 Blog post 2: [how the GPU is used to speed up the brute force search](https://arnaud-carre.github.io/2023-12-10-gpgpu/)
 
+## Building on Windows
+
+Install the free "visual studio community 2022" edition. Load abc2.sln project and just press build :)
+(a pre-compiled abc2.exe is already part of this repo)
+
 ## Building on macOS and Linux
 
 There is now a simple `Makefile` for POSIX builds:
